@@ -9,6 +9,7 @@ APP_KEY = os.getenv("APP_KEY")
 APP_SECRET = os.getenv("APP_SECRET")
 ACCOUNT_NO = os.getenv("ACCOUNT_NO")
 MOCK = os.getenv("MOCK", "true").lower() == "true"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # 모의투자 / 실전투자 도메인 분기
 BASE_URL = (
