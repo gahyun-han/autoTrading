@@ -1,4 +1,5 @@
 import MacdChart from "@/components/MacdChart";
+import { isDbConfigured } from "@/lib/db";
 import { getPositions, getRecentTrades, getSignalHistory, getTrackedStockCodes } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +23,13 @@ export default async function Home({
   return (
     <div className="min-h-screen bg-[#0b0f19] text-gray-200 p-8 font-sans">
       <h1 className="text-2xl font-bold mb-6">autoTrading 대시보드</h1>
+
+      {!isDbConfigured() && (
+        <div className="mb-6 rounded-lg border border-yellow-700 bg-yellow-950/40 p-4 text-sm text-yellow-300">
+          DATABASE_URL(Neon Postgres)이 아직 연결되지 않았습니다. Vercel 대시보드 &gt;
+          Storage 탭에서 Neon Postgres를 연결한 뒤 재배포하면 데이터가 표시됩니다.
+        </div>
+      )}
 
       <section className="mb-8">
         <h2 className="text-lg font-semibold mb-3">보유 포지션 ({positions.length})</h2>

@@ -19,6 +19,10 @@ export function sql(strings: TemplateStringsArray, ...values: unknown[]) {
   return getClient()(strings, ...values);
 }
 
+export function isDbConfigured() {
+  return Boolean(process.env.DATABASE_URL ?? process.env.POSTGRES_URL);
+}
+
 let initialized = false;
 
 /** 최초 호출 시 필요한 테이블을 생성한다 (idempotent) */
