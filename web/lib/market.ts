@@ -86,7 +86,7 @@ export async function fetchTopMarketCapUniverse(
     }
 
     // KIS API 호출 제한 대응 (초당 20건)
-    await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 1000));
   }
 
   return all.sort((a, b) => b.marketCap - a.marketCap).slice(0, size);
