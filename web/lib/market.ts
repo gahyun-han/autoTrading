@@ -70,7 +70,10 @@ export async function fetchTopMarketCapUniverse(
     url.searchParams.set("fid_vol_cnt", "");
 
     const res = await fetch(url, { headers: await getHeaders(MARKET_CAP_RANK_TR_ID) });
-    if (!res.ok) throw new Error(`시가총액 순위 조회 실패(${marketCode}): ${res.status}`);
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`시가총액 순위 조회 실패(${marketCode}): ${res.status} ${body.slice(0, 300)}`);
+    }
     const data = await res.json();
     const rows: any[] = data.output ?? [];
 
