@@ -25,7 +25,10 @@ export async function fetchDailyOhlcv(
   url.searchParams.set("FID_ORG_ADJ_PRC", "0");
 
   const res = await fetch(url, { headers: await getHeaders(DAILY_CHART_TR_ID) });
-  if (!res.ok) throw new Error(`일봉 조회 실패(${stockCode}): ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`일봉 조회 실패(${stockCode}): ${res.status} ${body.slice(0, 300)}`);
+  }
   const data = await res.json();
 
   const rows: any[] = data.output2 ?? [];

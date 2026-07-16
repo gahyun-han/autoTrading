@@ -68,7 +68,7 @@ export async function GET(req: Request) {
     } catch (e: any) {
       errors.push(`매도 체크 실패 ${pos.stock_code}: ${e.message}`);
     }
-    await sleep(60); // KIS 호출 제한(초당 20건) 대응
+    await sleep(500); // KIS 호출 제한 대응
   }
 
   // 2. 신규 매수 시그널 스캔 (최대 보유 수 미만일 때만)
@@ -121,7 +121,7 @@ export async function GET(req: Request) {
         } catch (e: any) {
           errors.push(`매수 체크 실패 ${stock.code}: ${e.message}`);
         }
-        await sleep(60);
+        await sleep(500);
       }
     } catch (e: any) {
       errors.push(`유니버스 조회 실패: ${e.message}`);
