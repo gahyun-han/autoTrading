@@ -4,6 +4,7 @@ import { ensureSchema, sql } from "@/lib/db";
 import { calculateIndicators } from "@/lib/indicators";
 import { fetchDailyOhlcv, fetchTopMarketCapUniverse } from "@/lib/market";
 import { buyMarketOrder, sellMarketOrder } from "@/lib/order";
+import { backfillSignalHistory } from "@/lib/queries";
 import { checkBuySignal, checkSellSignal } from "@/lib/strategy";
 
 export const maxDuration = 300; // 종목 스캔에 시간이 걸릴 수 있어 넉넉히 설정
@@ -45,6 +46,8 @@ export async function GET(req: Request) {
       const candles = await fetchDailyOhlcv(pos.stock_code, start, end);
       const rows = calculateIndicators(candles);
       const result = checkSellSignal(rows, Number(pos.avg_price));
+
+      await backfillSignalHistory(pos.stock_code, pos.stock_name, rows);
 
       await sql`
         INSERT INTO signal_log (stock_code, stock_name, macd, macd_signal, macd_hist, ma5, ma20, signal)
@@ -89,6 +92,8 @@ export async function GET(req: Request) {
           const candles = await fetchDailyOhlcv(stock.code, start, end);
           const rows = calculateIndicators(candles);
           const result = checkBuySignal(rows);
+
+          await backfillSignalHistory(stock.code, stock.name, rows);
 
           await sql`
             INSERT INTO signal_log (stock_code, stock_name, macd, macd_signal, macd_hist, ma5, ma20, signal)

@@ -1,4 +1,5 @@
 import { ensureSchema, sql } from "./db";
+import type { IndicatorRow } from "./indicators";
 
 export interface TradeRow {
   id: number;
@@ -72,6 +73,35 @@ export async function getTrackedStockCodes(limit = 20): Promise<
       .map((r) => ({ stock_code: r.stock_code, stock_name: r.stock_name }));
   } catch {
     return [];
+  }
+}
+
+/**
+ * 특정 종목의 signal_log가 비어있으면(최초 스캔) 최근 15일치 지표를
+ * 실제 날짜로 소급 삽입해 차트가 처음부터 추세선을 보여주도록 한다.
+ * (오늘자 로그는 호출부에서 별도로 insert하므로 마지막 1일은 제외)
+ */
+export async function backfillSignalHistory(
+  stockCode: string,
+  stockName: string,
+  rows: IndicatorRow[],
+  days = 15,
+) {
+  try {
+    await ensureSchema();
+    const existing = await sql`SELECT 1 FROM signal_log WHERE stock_code = ${stockCode} LIMIT 1`;
+    if (existing.length > 0) return;
+
+    const historyRows = rows.slice(-days, -1);
+    for (const r of historyRows) {
+      const isoDate = `${r.date.slice(0, 4)}-${r.date.slice(4, 6)}-${r.date.slice(6, 8)}`;
+      await sql`
+        INSERT INTO signal_log (stock_code, stock_name, macd, macd_signal, macd_hist, ma5, ma20, signal, created_at)
+        VALUES (${stockCode}, ${stockName}, ${r.macd}, ${r.macdSignal}, ${r.macdHist}, ${r.ma5}, ${r.ma20}, 'HISTORY', ${isoDate}::date)
+      `;
+    }
+  } catch {
+    // 백필 실패는 무시 (오늘자 정상 로그 삽입에는 영향 없음)
   }
 }
 
