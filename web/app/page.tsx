@@ -1,3 +1,4 @@
+import BacktestTab from "@/components/BacktestTab";
 import MacdChart from "@/components/MacdChart";
 import { isDbConfigured } from "@/lib/db";
 import { getPositions, getRecentTrades, getSignalHistory, getTrackedStockCodes } from "@/lib/queries";
@@ -145,6 +146,8 @@ export default async function Home({
           <p className="text-gray-500 text-sm">선택된 종목의 시그널 기록이 없습니다.</p>
         )}
       </section>
+
+      <BacktestTab />
     </div>
   );
 }
