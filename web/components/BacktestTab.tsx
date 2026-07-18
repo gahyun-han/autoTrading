@@ -27,6 +27,8 @@ function fmtDate(d: string) {
 export default function BacktestTab() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<BacktestResult[] | null>(null);
+  const [dataStart, setDataStart] = useState<string | null>(null);
+  const [dataEnd, setDataEnd] = useState<string | null>(null);
   const [backtestStart, setBacktestStart] = useState<string | null>(null);
   const [ranAt, setRanAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +42,8 @@ export default function BacktestTab() {
       if (!res.ok) throw new Error(`요청 실패: ${res.status}`);
       const data = await res.json();
       setResults(data.results);
+      setDataStart(data.dataStart);
+      setDataEnd(data.dataEnd);
       setBacktestStart(data.backtestStart);
       setRanAt(data.ranAt);
     } catch (e: any) {
@@ -68,7 +72,8 @@ export default function BacktestTab() {
 
       {backtestStart && (
         <p className="text-xs text-gray-500 mb-3">
-          시뮬레이션 시작일: {fmtDate(backtestStart)} · 실행 시각:{" "}
+          조회 데이터 기간: {dataStart && fmtDate(dataStart)} ~ {dataEnd && fmtDate(dataEnd)} · 매매
+          시뮬레이션 구간: {fmtDate(backtestStart)} ~ {dataEnd && fmtDate(dataEnd)} · 실행 시각:{" "}
           {ranAt ? new Date(ranAt).toLocaleString("ko-KR") : "-"}
         </p>
       )}

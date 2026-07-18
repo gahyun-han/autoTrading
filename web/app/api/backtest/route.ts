@@ -42,5 +42,11 @@ export async function GET() {
     await sleep(500); // KIS 호출 제한 대응
   }
 
-  return NextResponse.json({ backtestStart: fmt(backtestStart), results, ranAt: new Date().toISOString() });
+  return NextResponse.json({
+    dataStart: fmt(start),
+    dataEnd: fmt(end),
+    backtestStart: fmt(backtestStart),
+    results,
+    ranAt: new Date().toISOString(),
+  });
 }
