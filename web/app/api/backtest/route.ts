@@ -25,17 +25,15 @@ async function sleep(ms: number) {
 export async function GET() {
   const end = new Date();
   const start = new Date();
-  start.setDate(end.getDate() - 200); // MACD 계산 여유 + 100거래일 한도 내에서 최대한 확보
-
-  const backtestStart = new Date();
-  backtestStart.setMonth(backtestStart.getMonth() - 1);
+  start.setDate(end.getDate() - 200); // KIS 일봉 API는 요청 범위와 무관하게 최근 100거래일(약 4~5개월)까지만 반환
 
   const results = [];
   for (const t of TARGETS) {
     try {
       const candles = await fetchDailyOhlcv(t.code, fmt(start), fmt(end));
       const rows = calculateIndicators(candles);
-      results.push(runBacktest(t.code, t.name, rows, fmt(backtestStart), INVEST_PER_STOCK));
+      // KIS가 실제로 반환한 전체 기간(최대 100거래일)을 그대로 시뮬레이션 대상으로 사용
+      results.push(runBacktest(t.code, t.name, rows, rows[0]?.date ?? fmt(start), INVEST_PER_STOCK));
     } catch (e: any) {
       results.push({ stockCode: t.code, stockName: t.name, error: e.message });
     }
@@ -45,7 +43,6 @@ export async function GET() {
   return NextResponse.json({
     dataStart: fmt(start),
     dataEnd: fmt(end),
-    backtestStart: fmt(backtestStart),
     results,
     ranAt: new Date().toISOString(),
   });

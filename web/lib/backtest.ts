@@ -9,6 +9,14 @@ export interface BacktestTrade {
   reason: string;
 }
 
+export interface BacktestCandle {
+  date: string; // YYYYMMDD
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
 export interface BacktestResult {
   stockCode: string;
   stockName: string;
@@ -16,6 +24,7 @@ export interface BacktestResult {
   invested: number;
   finalValue: number;
   finalReturnPct: number;
+  candles: BacktestCandle[];
 }
 
 /**
@@ -67,5 +76,13 @@ export function runBacktest(
   const finalValue = cash + qty * lastPrice;
   const finalReturnPct = ((finalValue - investPerStock) / investPerStock) * 100;
 
-  return { stockCode, stockName, trades, invested: investPerStock, finalValue, finalReturnPct };
+  const candles: BacktestCandle[] = rows.slice(simStart).map((r) => ({
+    date: r.date,
+    open: r.open,
+    high: r.high,
+    low: r.low,
+    close: r.close,
+  }));
+
+  return { stockCode, stockName, trades, invested: investPerStock, finalValue, finalReturnPct, candles };
 }
