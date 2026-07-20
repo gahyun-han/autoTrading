@@ -57,10 +57,28 @@ export default function BacktestChart({
     const isMobile = window.innerWidth < 640;
 
     const chart = createChart(containerRef.current, {
-      layout: { background: { type: ColorType.Solid, color: "#0b0f19" }, textColor: "#d1d5db" },
+      layout: {
+        background: { type: ColorType.Solid, color: "#0b0f19" },
+        textColor: "#d1d5db",
+        // MACD 구간 경계선을 드래그로 리사이즈하지 못하도록 고정
+        panes: { enableResize: false },
+      },
       grid: { vertLines: { color: "#1f2937" }, horzLines: { color: "#1f2937" } },
       width: containerRef.current.clientWidth,
       height: isMobile ? 320 : 420,
+      handleScale: {
+        // 손가락으로 세로 스크롤/드래그 시 Y축이 확대축소되지 않도록 축 스케일 제스처 최소화
+        axisPressedMouseMove: { time: true, price: false },
+        pinch: false,
+        mouseWheel: false,
+      },
+      handleScroll: {
+        // 세로 터치 드래그는 페이지 스크롤로 넘기고, 차트는 가로 이동만 처리
+        vertTouchDrag: false,
+        horzTouchDrag: true,
+        pressedMouseMove: true,
+        mouseWheel: false,
+      },
     });
 
     // 가격 pane(0): 캔들 + MA5/MA20 (정배열/역배열을 선으로 바로 확인)
