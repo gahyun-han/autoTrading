@@ -20,6 +20,9 @@ interface BacktestCandle {
   ma5: number | null;
   ma20: number | null;
   rsi: number | null;
+  macd: number | null;
+  macdSignal: number | null;
+  macdHist: number | null;
 }
 
 interface BacktestResult {
