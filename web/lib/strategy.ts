@@ -1,5 +1,7 @@
 import {
   GC_WINDOW,
+  RSI_OVERSOLD,
+  RSI_REBOUND_WINDOW,
   STOP_LOSS_PCT,
   TAKE_PROFIT_PCT,
   VOLUME_SURGE_MULT,
@@ -52,6 +54,26 @@ function macdHistTurnedNegative(rows: IndicatorRow[]): boolean {
   return prev.macdHist > 0 && cur.macdHist <= 0;
 }
 
+/** MACD 히스토그램이 음(-)에서 양(+)으로 전환됐는지 */
+function macdHistTurnedPositive(rows: IndicatorRow[]): boolean {
+  const n = rows.length;
+  if (n < 2) return false;
+  const prev = rows[n - 2];
+  const cur = rows[n - 1];
+  return prev.macdHist <= 0 && cur.macdHist > 0;
+}
+
+/** 최근 N일 내 RSI가 과매도(oversold) 구간을 찍고 현재는 그 위로 복귀했는지 */
+function rsiReboundFromOversold(rows: IndicatorRow[], window: number): boolean {
+  const n = rows.length;
+  const cur = rows[n - 1];
+  if (Number.isNaN(cur.rsi) || cur.rsi <= RSI_OVERSOLD) return false;
+  for (let i = Math.max(0, n - 1 - window); i < n - 1; i++) {
+    if (rows[i].rsi <= RSI_OVERSOLD) return true;
+  }
+  return false;
+}
+
 function averageVolume(rows: IndicatorRow[], lookback = 20): number {
   const slice = rows.slice(-lookback - 1, -1); // 오늘 제외 직전 lookback일
   if (slice.length === 0) return 0;
@@ -77,6 +99,26 @@ export function checkBuySignal(rows: IndicatorRow[]): SignalResult {
   if (!allMet) return { signal: "HOLD", reason: JSON.stringify(conditions) };
 
   return { signal: "BUY", reason: "골든크로스+MACD상향돌파+거래량급증" };
+}
+
+/**
+ * 합류(confluence) 전략 매수 시그널 판정
+ * AND: MA 정배열(MA5>MA20) + RSI 과매도(30) 이탈 복귀(N일 이내) + MACD 모멘텀 전환(상향돌파 또는 히스토그램 양전환)
+ */
+export function checkConfluenceBuySignal(rows: IndicatorRow[]): SignalResult {
+  if (rows.length < 30) return { signal: "HOLD", reason: "데이터 부족" };
+
+  const cur = rows[rows.length - 1];
+  const conditions = {
+    trendAligned: cur.ma5 > cur.ma20,
+    rsiRebound: rsiReboundFromOversold(rows, RSI_REBOUND_WINDOW),
+    macdMomentum: macdCrossedUp(rows) || macdHistTurnedPositive(rows),
+  };
+
+  const allMet = Object.values(conditions).every(Boolean);
+  if (!allMet) return { signal: "HOLD", reason: JSON.stringify(conditions) };
+
+  return { signal: "BUY", reason: "MA정배열+RSI과매도복귀+MACD모멘텀전환" };
 }
 
 /**

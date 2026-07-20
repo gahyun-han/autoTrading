@@ -27,3 +27,7 @@ export const MAX_POSITION = 7; // 최대 동시 보유 종목 수
 export const INVEST_PER_STOCK = 500_000; // 종목당 투자금 (원)
 export const VOLUME_SURGE_MULT = 1.5; // 거래량 평균 대비 배율 (이상 급등 필터)
 export const UNIVERSE_SIZE = 100; // 코스피+코스닥 시가총액 상위 N개
+
+// 합류(confluence) 전략 파라미터 (MA 정배열 + RSI 과매도 복귀 + MACD 모멘텀 전환)
+export const RSI_OVERSOLD = 30;
+export const RSI_REBOUND_WINDOW = 5; // 최근 N일 내 과매도 이탈 인정 기간

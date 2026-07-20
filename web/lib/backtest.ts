@@ -1,5 +1,5 @@
 import type { IndicatorRow } from "./indicators";
-import { checkBuySignal, checkSellSignal } from "./strategy";
+import { checkBuySignal, checkSellSignal, type SignalResult } from "./strategy";
 
 export interface BacktestTrade {
   date: string; // YYYYMMDD
@@ -37,6 +37,7 @@ export function runBacktest(
   rows: IndicatorRow[],
   backtestStartDate: string,
   investPerStock: number,
+  buySignalFn: (rows: IndicatorRow[]) => SignalResult = checkBuySignal,
 ): BacktestResult {
   const trades: BacktestTrade[] = [];
   let cash = investPerStock;
@@ -59,7 +60,7 @@ export function runBacktest(
         avgPrice = 0;
       }
     } else {
-      const result = checkBuySignal(upToNow);
+      const result = buySignalFn(upToNow);
       if (result.signal === "BUY") {
         const buyQty = Math.floor(cash / today.close);
         if (buyQty > 0) {

@@ -3,6 +3,7 @@ import { runBacktest } from "@/lib/backtest";
 import { INVEST_PER_STOCK } from "@/lib/config";
 import { calculateIndicators } from "@/lib/indicators";
 import { fetchDailyOhlcv } from "@/lib/market";
+import { checkBuySignal, checkConfluenceBuySignal } from "@/lib/strategy";
 
 export const maxDuration = 60;
 
@@ -22,7 +23,11 @@ async function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const strategy = searchParams.get("strategy") === "confluence" ? "confluence" : "default";
+  const buySignalFn = strategy === "confluence" ? checkConfluenceBuySignal : checkBuySignal;
+
   const end = new Date();
   const start = new Date();
   start.setDate(end.getDate() - 200); // KIS 일봉 API는 요청 범위와 무관하게 최근 100거래일(약 4~5개월)까지만 반환
@@ -33,7 +38,9 @@ export async function GET() {
       const candles = await fetchDailyOhlcv(t.code, fmt(start), fmt(end));
       const rows = calculateIndicators(candles);
       // KIS가 실제로 반환한 전체 기간(최대 100거래일)을 그대로 시뮬레이션 대상으로 사용
-      results.push(runBacktest(t.code, t.name, rows, rows[0]?.date ?? fmt(start), INVEST_PER_STOCK));
+      results.push(
+        runBacktest(t.code, t.name, rows, rows[0]?.date ?? fmt(start), INVEST_PER_STOCK, buySignalFn),
+      );
     } catch (e: any) {
       results.push({ stockCode: t.code, stockName: t.name, error: e.message });
     }
@@ -41,6 +48,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
+    strategy,
     dataStart: fmt(start),
     dataEnd: fmt(end),
     results,

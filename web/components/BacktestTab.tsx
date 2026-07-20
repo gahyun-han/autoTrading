@@ -34,7 +34,13 @@ function fmtDate(d: string) {
   return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
 }
 
+const STRATEGIES = [
+  { value: "default", label: "현재 전략 (골든크로스+MACD상향돌파+거래량급증, 4중 AND)" },
+  { value: "confluence", label: "합류 전략 (MA정배열+RSI과매도복귀+MACD모멘텀전환)" },
+];
+
 export default function BacktestTab() {
+  const [strategy, setStrategy] = useState("default");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<BacktestResult[] | null>(null);
   const [dataStart, setDataStart] = useState<string | null>(null);
@@ -47,7 +53,7 @@ export default function BacktestTab() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/backtest");
+      const res = await fetch(`/api/backtest?strategy=${strategy}`);
       if (!res.ok) throw new Error(`요청 실패: ${res.status}`);
       const data = await res.json();
       setResults(data.results);
@@ -63,8 +69,19 @@ export default function BacktestTab() {
 
   return (
     <section className="mb-8">
-      <div className="flex items-center gap-3 mb-3">
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
         <h2 className="text-lg font-semibold">백테스트 (KIS 최대 조회기간, 약 100거래일)</h2>
+        <select
+          value={strategy}
+          onChange={(e) => setStrategy(e.target.value)}
+          className="bg-gray-900 border border-gray-700 rounded text-sm px-2 py-1 text-gray-300"
+        >
+          {STRATEGIES.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </select>
         <button
           onClick={runBacktest}
           disabled={loading}
