@@ -9,9 +9,9 @@ interface BacktestCandle {
   high: number;
   low: number;
   close: number;
-  ma5: number;
-  ma20: number;
-  rsi: number;
+  ma5: number | null;
+  ma20: number | null;
+  rsi: number | null;
 }
 
 interface BacktestTrade {
@@ -76,7 +76,7 @@ export default function BacktestChart({
     for (let i = 1; i < candles.length; i++) {
       const prev = candles[i - 1];
       const cur = candles[i];
-      if (Number.isNaN(prev.ma5) || Number.isNaN(prev.ma20) || Number.isNaN(cur.ma5) || Number.isNaN(cur.ma20)) {
+      if (prev.ma5 == null || prev.ma20 == null || cur.ma5 == null || cur.ma20 == null) {
         continue;
       }
       if (prev.ma5 <= prev.ma20 && cur.ma5 > cur.ma20) {
@@ -103,7 +103,7 @@ export default function BacktestChart({
     for (let i = 1; i < candles.length; i++) {
       const prev = candles[i - 1];
       const cur = candles[i];
-      if (Number.isNaN(cur.rsi)) continue;
+      if (cur.rsi == null || prev.close === 0) continue;
       const changePct = ((cur.close - prev.close) / prev.close) * 100;
       if (Math.abs(changePct) >= 3) {
         rsiMarkers.push({
