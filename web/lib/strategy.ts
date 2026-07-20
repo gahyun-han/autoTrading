@@ -74,6 +74,19 @@ function rsiReboundFromOversold(rows: IndicatorRow[], window: number): boolean {
   return false;
 }
 
+/** 최근 N일 내에 MACD 모멘텀 전환(상향돌파 또는 히스토그램 양전환)이 발생했는지 */
+function macdMomentumWithinWindow(rows: IndicatorRow[], window: number): boolean {
+  const n = rows.length;
+  for (let i = Math.max(1, n - window); i < n; i++) {
+    const prev = rows[i - 1];
+    const cur = rows[i];
+    const crossedUp = prev.macd <= prev.macdSignal && cur.macd > cur.macdSignal;
+    const histTurnedPositive = prev.macdHist <= 0 && cur.macdHist > 0;
+    if (crossedUp || histTurnedPositive) return true;
+  }
+  return false;
+}
+
 function averageVolume(rows: IndicatorRow[], lookback = 20): number {
   const slice = rows.slice(-lookback - 1, -1); // 오늘 제외 직전 lookback일
   if (slice.length === 0) return 0;
@@ -103,7 +116,7 @@ export function checkBuySignal(rows: IndicatorRow[]): SignalResult {
 
 /**
  * 합류(confluence) 전략 매수 시그널 판정
- * AND: MA 정배열(MA5>MA20) + RSI 과매도(30) 이탈 복귀(N일 이내) + MACD 모멘텀 전환(상향돌파 또는 히스토그램 양전환)
+ * AND: MA 정배열(MA5>MA20) + RSI 과매도 이탈 복귀(N일 이내) + MACD 모멘텀 전환(N일 이내, 상향돌파 또는 히스토그램 양전환)
  */
 export function checkConfluenceBuySignal(rows: IndicatorRow[]): SignalResult {
   if (rows.length < 30) return { signal: "HOLD", reason: "데이터 부족" };
@@ -112,7 +125,7 @@ export function checkConfluenceBuySignal(rows: IndicatorRow[]): SignalResult {
   const conditions = {
     trendAligned: cur.ma5 > cur.ma20,
     rsiRebound: rsiReboundFromOversold(rows, RSI_REBOUND_WINDOW),
-    macdMomentum: macdCrossedUp(rows) || macdHistTurnedPositive(rows),
+    macdMomentum: macdMomentumWithinWindow(rows, RSI_REBOUND_WINDOW),
   };
 
   const allMet = Object.values(conditions).every(Boolean);
