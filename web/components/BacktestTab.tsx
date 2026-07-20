@@ -17,6 +17,9 @@ interface BacktestCandle {
   high: number;
   low: number;
   close: number;
+  ma5: number;
+  ma20: number;
+  rsi: number;
 }
 
 interface BacktestResult {

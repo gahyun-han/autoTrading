@@ -9,6 +9,9 @@ interface BacktestCandle {
   high: number;
   low: number;
   close: number;
+  ma5: number;
+  ma20: number;
+  rsi: number;
 }
 
 interface BacktestTrade {
@@ -60,16 +63,64 @@ export default function BacktestChart({
       })),
     );
 
-    createSeriesMarkers(
-      candleSeries,
-      trades.map((t) => ({
-        time: toTime(t.date) as any,
-        position: t.side === "BUY" ? "belowBar" : "aboveBar",
-        color: t.side === "BUY" ? "#ef4444" : "#3b82f6",
-        shape: t.side === "BUY" ? "arrowUp" : "arrowDown",
-        text: t.side === "BUY" ? "매수" : "매도",
-      })),
+    const tradeMarkers: any[] = trades.map((t) => ({
+      time: toTime(t.date) as any,
+      position: t.side === "BUY" ? "belowBar" : "aboveBar",
+      color: t.side === "BUY" ? "#ef4444" : "#3b82f6",
+      shape: t.side === "BUY" ? "arrowUp" : "arrowDown",
+      text: t.side === "BUY" ? "매수" : "매도",
+    }));
+
+    // 골든크로스/데드크로스 마커 (MA5가 MA20을 상향/하향 돌파)
+    const crossMarkers: any[] = [];
+    for (let i = 1; i < candles.length; i++) {
+      const prev = candles[i - 1];
+      const cur = candles[i];
+      if (Number.isNaN(prev.ma5) || Number.isNaN(prev.ma20) || Number.isNaN(cur.ma5) || Number.isNaN(cur.ma20)) {
+        continue;
+      }
+      if (prev.ma5 <= prev.ma20 && cur.ma5 > cur.ma20) {
+        crossMarkers.push({
+          time: toTime(cur.date) as any,
+          position: "belowBar",
+          color: "#22c55e",
+          shape: "circle",
+          text: "GC",
+        });
+      } else if (prev.ma5 >= prev.ma20 && cur.ma5 < cur.ma20) {
+        crossMarkers.push({
+          time: toTime(cur.date) as any,
+          position: "aboveBar",
+          color: "#f97316",
+          shape: "circle",
+          text: "DC",
+        });
+      }
+    }
+
+    // 전일 대비 큰 폭(±3%) 변동 지점에 RSI 수치 표시
+    const rsiMarkers: any[] = [];
+    for (let i = 1; i < candles.length; i++) {
+      const prev = candles[i - 1];
+      const cur = candles[i];
+      if (Number.isNaN(cur.rsi)) continue;
+      const changePct = ((cur.close - prev.close) / prev.close) * 100;
+      if (Math.abs(changePct) >= 3) {
+        rsiMarkers.push({
+          time: toTime(cur.date) as any,
+          position: changePct > 0 ? "aboveBar" : "belowBar",
+          color: changePct > 0 ? "#eab308" : "#a855f7",
+          shape: "square",
+          text: `RSI ${cur.rsi.toFixed(0)}`,
+        });
+      }
+    }
+
+    const allMarkers = [...tradeMarkers, ...crossMarkers, ...rsiMarkers].sort(
+      (a, b) => (a.time as string).localeCompare(b.time as string),
     );
+
+    createSeriesMarkers(candleSeries, allMarkers);
 
     chart.timeScale().fitContent();
 
