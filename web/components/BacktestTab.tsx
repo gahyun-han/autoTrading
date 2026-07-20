@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import BacktestChart from "@/components/BacktestChart";
+import { PRESET_CONFLUENCE, PRESET_DEFAULT, TAG_META } from "@/lib/conditionTags";
 
 interface BacktestTrade {
   date: string;
@@ -19,10 +20,16 @@ interface BacktestCandle {
   close: number;
   ma5: number | null;
   ma20: number | null;
+  ma60: number | null;
+  ma120: number | null;
   rsi: number | null;
   macd: number | null;
   macdSignal: number | null;
   macdHist: number | null;
+  tenkan: number | null;
+  kijun: number | null;
+  spanA: number | null;
+  spanB: number | null;
 }
 
 interface BacktestResult {
@@ -40,13 +47,10 @@ function fmtDate(d: string) {
   return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
 }
 
-const STRATEGIES = [
-  { value: "default", label: "현재 전략 (골든크로스+MACD상향돌파+거래량급증, 4중 AND)" },
-  { value: "confluence", label: "합류 전략 (MA정배열+RSI과매도복귀+MACD모멘텀전환)" },
-];
+const TAG_CATEGORIES = Array.from(new Set(TAG_META.map((t) => t.category)));
 
 export default function BacktestTab() {
-  const [strategy, setStrategy] = useState("default");
+  const [selectedTags, setSelectedTags] = useState<string[]>(PRESET_DEFAULT);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<BacktestResult[] | null>(null);
   const [dataStart, setDataStart] = useState<string | null>(null);
@@ -55,11 +59,15 @@ export default function BacktestTab() {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
+  function toggleTag(id: string) {
+    setSelectedTags((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
+  }
+
   async function runBacktest() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/backtest?strategy=${strategy}`);
+      const res = await fetch(`/api/backtest?tags=${selectedTags.join(",")}`);
       if (!res.ok) throw new Error(`요청 실패: ${res.status}`);
       const data = await res.json();
       setResults(data.results);
@@ -77,17 +85,57 @@ export default function BacktestTab() {
     <section className="mb-8">
       <div className="flex items-center gap-3 mb-3 flex-wrap">
         <h2 className="text-lg font-semibold">백테스트 (KIS 최대 조회기간, 약 100거래일)</h2>
-        <select
-          value={strategy}
-          onChange={(e) => setStrategy(e.target.value)}
-          className="bg-gray-900 border border-gray-700 rounded text-sm px-2 py-1 text-gray-300"
+        <button
+          onClick={() => setSelectedTags(PRESET_DEFAULT)}
+          className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:border-gray-500"
         >
-          {STRATEGIES.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </select>
+          프리셋: 기존 전략
+        </button>
+        <button
+          onClick={() => setSelectedTags(PRESET_CONFLUENCE)}
+          className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:border-gray-500"
+        >
+          프리셋: 합류 전략
+        </button>
+        <button
+          onClick={() => setSelectedTags([])}
+          className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:border-gray-500"
+        >
+          전체 해제
+        </button>
+      </div>
+
+      <div className="mb-3 space-y-2">
+        {TAG_CATEGORIES.map((cat) => (
+          <div key={cat} className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-500 w-16 shrink-0">{cat}</span>
+            {TAG_META.filter((t) => t.category === cat).map((t) => {
+              const active = selectedTags.includes(t.id);
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => toggleTag(t.id)}
+                  className={`text-xs px-2 py-1 rounded-full border transition-colors ${
+                    active
+                      ? "bg-blue-600 border-blue-600 text-white"
+                      : "border-gray-700 text-gray-400 hover:border-gray-500"
+                  }`}
+                >
+                  #{t.label}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
+        <p className="text-xs text-gray-400">
+          선택된 조건 ({selectedTags.length}개, AND 결합):{" "}
+          {selectedTags.length > 0
+            ? selectedTags.map((id) => TAG_META.find((t) => t.id === id)?.label ?? id).join(" + ")
+            : "없음"}
+        </p>
         <button
           onClick={runBacktest}
           disabled={loading}

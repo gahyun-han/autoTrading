@@ -6,6 +6,7 @@ import {
   TAKE_PROFIT_PCT,
   VOLUME_SURGE_MULT,
 } from "./config";
+import { TAG_META } from "./conditionTags";
 import type { IndicatorRow } from "./indicators";
 
 export type Signal = "BUY" | "SELL" | "HOLD";
@@ -64,12 +65,12 @@ function macdHistTurnedPositive(rows: IndicatorRow[]): boolean {
 }
 
 /** 최근 N일 내 RSI가 과매도(oversold) 구간을 찍고 현재는 그 위로 복귀했는지 */
-function rsiReboundFromOversold(rows: IndicatorRow[], window: number): boolean {
+function rsiReboundFromOversold(rows: IndicatorRow[], window: number, threshold = RSI_OVERSOLD): boolean {
   const n = rows.length;
   const cur = rows[n - 1];
-  if (Number.isNaN(cur.rsi) || cur.rsi <= RSI_OVERSOLD) return false;
+  if (Number.isNaN(cur.rsi) || cur.rsi <= threshold) return false;
   for (let i = Math.max(0, n - 1 - window); i < n - 1; i++) {
-    if (rows[i].rsi <= RSI_OVERSOLD) return true;
+    if (rows[i].rsi <= threshold) return true;
   }
   return false;
 }
@@ -162,4 +163,72 @@ export function checkSellSignal(
   }
 
   return { signal: "HOLD", reason: `보유 유지 (${changePct.toFixed(1)}%)` };
+}
+
+/** 태그(해시태그) 조합 커스텀 매수 조건 판정용 개별 체크 함수 모음 */
+const TAG_CHECKS: Record<string, (rows: IndicatorRow[]) => boolean> = {
+  "ma5-gt-ma20": (rows) => {
+    const c = rows.at(-1)!;
+    return !Number.isNaN(c.ma5) && !Number.isNaN(c.ma20) && c.ma5 > c.ma20;
+  },
+  "ma20-gt-ma60": (rows) => {
+    const c = rows.at(-1)!;
+    return !Number.isNaN(c.ma20) && !Number.isNaN(c.ma60) && c.ma20 > c.ma60;
+  },
+  "ma60-gt-ma120": (rows) => {
+    const c = rows.at(-1)!;
+    return !Number.isNaN(c.ma60) && !Number.isNaN(c.ma120) && c.ma60 > c.ma120;
+  },
+  "golden-cross": (rows) => goldenCrossWithinWindow(rows, GC_WINDOW),
+  "dead-cross": (rows) => deadCrossJustHappened(rows),
+  "rsi-30-rebound": (rows) => rsiReboundFromOversold(rows, RSI_REBOUND_WINDOW, 30),
+  "rsi-40-rebound": (rows) => rsiReboundFromOversold(rows, RSI_REBOUND_WINDOW, 40),
+  "macd-above-zero": (rows) => rows.at(-1)!.macd > 0,
+  "macd-cross-up": (rows) => macdCrossedUp(rows),
+  "macd-hist-positive": (rows) => macdHistTurnedPositive(rows),
+  "macd-momentum-window": (rows) => macdMomentumWithinWindow(rows, RSI_REBOUND_WINDOW),
+  "volume-surge": (rows) => {
+    const c = rows.at(-1)!;
+    return c.volume >= averageVolume(rows) * VOLUME_SURGE_MULT;
+  },
+  "ichimoku-tenkan-gt-kijun": (rows) => {
+    const c = rows.at(-1)!;
+    return !Number.isNaN(c.tenkan) && !Number.isNaN(c.kijun) && c.tenkan > c.kijun;
+  },
+  "ichimoku-bullish-cloud": (rows) => {
+    const c = rows.at(-1)!;
+    return !Number.isNaN(c.spanA) && !Number.isNaN(c.spanB) && c.spanA > c.spanB;
+  },
+  "ichimoku-above-cloud": (rows) => {
+    const c = rows.at(-1)!;
+    if (Number.isNaN(c.spanA) || Number.isNaN(c.spanB)) return false;
+    return c.close > Math.max(c.spanA, c.spanB);
+  },
+};
+
+/**
+ * 사용자가 선택한 태그(해시태그) 조합을 모두 AND로 만족해야 BUY.
+ * 선택된 태그가 없으면 항상 HOLD.
+ */
+export function checkCustomBuySignal(tagIds: string[]): (rows: IndicatorRow[]) => SignalResult {
+  return (rows: IndicatorRow[]): SignalResult => {
+    if (rows.length < 30) return { signal: "HOLD", reason: "데이터 부족" };
+    if (tagIds.length === 0) return { signal: "HOLD", reason: "선택된 조건 없음" };
+
+    const labelOf = (id: string) => TAG_META.find((t) => t.id === id)?.label ?? id;
+    const evaluated = tagIds.map((id) => ({
+      id,
+      label: labelOf(id),
+      met: TAG_CHECKS[id] ? TAG_CHECKS[id](rows) : false,
+    }));
+
+    const allMet = evaluated.every((e) => e.met);
+    if (!allMet) {
+      return {
+        signal: "HOLD",
+        reason: evaluated.map((e) => `${e.met ? "✓" : "✗"}${e.label}`).join(" "),
+      };
+    }
+    return { signal: "BUY", reason: evaluated.map((e) => e.label).join("+") };
+  };
 }

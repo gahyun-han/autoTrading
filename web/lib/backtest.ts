@@ -17,10 +17,16 @@ export interface BacktestCandle {
   close: number;
   ma5: number;
   ma20: number;
+  ma60: number;
+  ma120: number;
   rsi: number;
   macd: number;
   macdSignal: number;
   macdHist: number;
+  tenkan: number;
+  kijun: number;
+  spanA: number;
+  spanB: number;
 }
 
 export interface BacktestResult {
@@ -91,10 +97,16 @@ export function runBacktest(
     close: r.close,
     ma5: r.ma5,
     ma20: r.ma20,
+    ma60: r.ma60,
+    ma120: r.ma120,
     rsi: r.rsi,
     macd: r.macd,
     macdSignal: r.macdSignal,
     macdHist: r.macdHist,
+    tenkan: r.tenkan,
+    kijun: r.kijun,
+    spanA: r.spanA,
+    spanB: r.spanB,
   }));
 
   return { stockCode, stockName, trades, invested: investPerStock, finalValue, finalReturnPct, candles };

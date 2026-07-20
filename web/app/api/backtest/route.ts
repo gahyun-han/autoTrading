@@ -3,7 +3,8 @@ import { runBacktest } from "@/lib/backtest";
 import { INVEST_PER_STOCK } from "@/lib/config";
 import { calculateIndicators } from "@/lib/indicators";
 import { fetchDailyOhlcv } from "@/lib/market";
-import { checkBuySignal, checkConfluenceBuySignal } from "@/lib/strategy";
+import { PRESET_DEFAULT } from "@/lib/conditionTags";
+import { checkCustomBuySignal } from "@/lib/strategy";
 
 export const maxDuration = 60;
 
@@ -25,8 +26,9 @@ async function sleep(ms: number) {
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const strategy = searchParams.get("strategy") === "confluence" ? "confluence" : "default";
-  const buySignalFn = strategy === "confluence" ? checkConfluenceBuySignal : checkBuySignal;
+  const tagsParam = searchParams.get("tags");
+  const tags = tagsParam ? tagsParam.split(",").filter(Boolean) : PRESET_DEFAULT;
+  const buySignalFn = checkCustomBuySignal(tags);
 
   const end = new Date();
   const start = new Date();
@@ -48,7 +50,7 @@ export async function GET(req: Request) {
   }
 
   return NextResponse.json({
-    strategy,
+    tags,
     dataStart: fmt(start),
     dataEnd: fmt(end),
     results,

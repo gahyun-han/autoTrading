@@ -1,4 +1,15 @@
-import { MACD_FAST, MACD_SIGNAL, MACD_SLOW, MA_LONG, MA_SHORT } from "./config";
+import {
+  ICHIMOKU_BASE,
+  ICHIMOKU_CONVERSION,
+  ICHIMOKU_SPAN_B,
+  MACD_FAST,
+  MACD_SIGNAL,
+  MACD_SLOW,
+  MA_LONG,
+  MA_MID,
+  MA_SHORT,
+  MA_XLONG,
+} from "./config";
 
 export interface Candle {
   date: string; // YYYYMMDD
@@ -15,7 +26,13 @@ export interface IndicatorRow extends Candle {
   macdHist: number;
   ma5: number;
   ma20: number;
+  ma60: number;
+  ma120: number;
   rsi: number;
+  tenkan: number; // 일목균형표 전환선
+  kijun: number; // 일목균형표 기준선
+  spanA: number; // 일목균형표 선행스팬1 ((전환선+기준선)/2)
+  spanB: number; // 일목균형표 선행스팬2 (52일 최고/최저 중간값)
 }
 
 function ema(values: number[], span: number): number[] {
@@ -67,9 +84,26 @@ function sma(values: number[], window: number): number[] {
   return out;
 }
 
-/** 일봉(오름차순) 배열에 MACD, MA5/MA20 지표를 계산해 붙인다 */
+/** 최근 window 기간의 (최고가+최저가)/2 (일목균형표 전환선/기준선/스팬2 계산용) */
+function midpointHighLow(highs: number[], lows: number[], window: number): number[] {
+  const out: number[] = new Array(highs.length).fill(NaN);
+  for (let i = window - 1; i < highs.length; i++) {
+    let max = -Infinity;
+    let min = Infinity;
+    for (let j = i - window + 1; j <= i; j++) {
+      if (highs[j] > max) max = highs[j];
+      if (lows[j] < min) min = lows[j];
+    }
+    out[i] = (max + min) / 2;
+  }
+  return out;
+}
+
+/** 일봉(오름차순) 배열에 MACD, MA, RSI, 일목균형표 지표를 계산해 붙인다 */
 export function calculateIndicators(candles: Candle[]): IndicatorRow[] {
   const closes = candles.map((c) => c.close);
+  const highs = candles.map((c) => c.high);
+  const lows = candles.map((c) => c.low);
 
   const emaFast = ema(closes, MACD_FAST);
   const emaSlow = ema(closes, MACD_SLOW);
@@ -79,7 +113,14 @@ export function calculateIndicators(candles: Candle[]): IndicatorRow[] {
 
   const ma5 = sma(closes, MA_SHORT);
   const ma20 = sma(closes, MA_LONG);
+  const ma60 = sma(closes, MA_MID);
+  const ma120 = sma(closes, MA_XLONG);
   const rsiValues = rsi(closes);
+
+  const tenkan = midpointHighLow(highs, lows, ICHIMOKU_CONVERSION);
+  const kijun = midpointHighLow(highs, lows, ICHIMOKU_BASE);
+  const spanA = tenkan.map((v, i) => (Number.isNaN(v) || Number.isNaN(kijun[i]) ? NaN : (v + kijun[i]) / 2));
+  const spanB = midpointHighLow(highs, lows, ICHIMOKU_SPAN_B);
 
   return candles.map((c, i) => ({
     ...c,
@@ -88,6 +129,12 @@ export function calculateIndicators(candles: Candle[]): IndicatorRow[] {
     macdHist: macdHist[i],
     ma5: ma5[i],
     ma20: ma20[i],
+    ma60: ma60[i],
+    ma120: ma120[i],
     rsi: rsiValues[i],
+    tenkan: tenkan[i],
+    kijun: kijun[i],
+    spanA: spanA[i],
+    spanB: spanB[i],
   }));
 }

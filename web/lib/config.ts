@@ -18,6 +18,13 @@ export const MACD_SIGNAL = 9;
 // 이동평균 (골든/데드크로스 판정용)
 export const MA_SHORT = 5;
 export const MA_LONG = 20;
+export const MA_MID = 60;
+export const MA_XLONG = 120; // KIS 일봉 API는 최대 ~100거래일만 반환하므로 실질적으로 값이 안 잡힐 수 있음
+
+// 일목균형표 파라미터
+export const ICHIMOKU_CONVERSION = 9; // 전환선
+export const ICHIMOKU_BASE = 26; // 기준선
+export const ICHIMOKU_SPAN_B = 52; // 선행스팬2
 
 // 전략 파라미터
 export const GC_WINDOW = 5; // 골든크로스 인정 기간 (일)

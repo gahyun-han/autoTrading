@@ -18,10 +18,16 @@ interface BacktestCandle {
   close: number;
   ma5: number | null;
   ma20: number | null;
+  ma60: number | null;
+  ma120: number | null;
   rsi: number | null;
   macd: number | null;
   macdSignal: number | null;
   macdHist: number | null;
+  tenkan: number | null;
+  kijun: number | null;
+  spanA: number | null;
+  spanB: number | null;
 }
 
 interface BacktestTrade {
@@ -98,6 +104,73 @@ export default function BacktestChart({
       candles
         .filter((c) => c.ma20 != null)
         .map((c) => ({ time: toTime(c.date) as any, value: c.ma20 as number })),
+    );
+
+    const ma60Series = chart.addSeries(
+      LineSeries,
+      { color: "#94a3b8", lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false },
+      0,
+    );
+    ma60Series.setData(
+      candles
+        .filter((c) => c.ma60 != null)
+        .map((c) => ({ time: toTime(c.date) as any, value: c.ma60 as number })),
+    );
+
+    const ma120Series = chart.addSeries(
+      LineSeries,
+      { color: "#ec4899", lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false },
+      0,
+    );
+    ma120Series.setData(
+      candles
+        .filter((c) => c.ma120 != null)
+        .map((c) => ({ time: toTime(c.date) as any, value: c.ma120 as number })),
+    );
+
+    // 일목균형표: 전환선/기준선/선행스팬1·2 (스팬은 정석과 달리 26일 선행 이동 없이 당일 값으로 표시)
+    const tenkanSeries = chart.addSeries(
+      LineSeries,
+      { color: "#2dd4bf", lineWidth: 1, priceLineVisible: false, lastValueVisible: false },
+      0,
+    );
+    tenkanSeries.setData(
+      candles
+        .filter((c) => c.tenkan != null)
+        .map((c) => ({ time: toTime(c.date) as any, value: c.tenkan as number })),
+    );
+
+    const kijunSeries = chart.addSeries(
+      LineSeries,
+      { color: "#f472b6", lineWidth: 1, priceLineVisible: false, lastValueVisible: false },
+      0,
+    );
+    kijunSeries.setData(
+      candles
+        .filter((c) => c.kijun != null)
+        .map((c) => ({ time: toTime(c.date) as any, value: c.kijun as number })),
+    );
+
+    const spanASeries = chart.addSeries(
+      LineSeries,
+      { color: "#84cc16", lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false },
+      0,
+    );
+    spanASeries.setData(
+      candles
+        .filter((c) => c.spanA != null)
+        .map((c) => ({ time: toTime(c.date) as any, value: c.spanA as number })),
+    );
+
+    const spanBSeries = chart.addSeries(
+      LineSeries,
+      { color: "#fb923c", lineWidth: 1, lineStyle: 3, priceLineVisible: false, lastValueVisible: false },
+      0,
+    );
+    spanBSeries.setData(
+      candles
+        .filter((c) => c.spanB != null)
+        .map((c) => ({ time: toTime(c.date) as any, value: c.spanB as number })),
     );
 
     // MACD pane(1): MACD선, 시그널선, 히스토그램 (모멘텀 전환을 한 눈에 확인)
@@ -225,6 +298,30 @@ export default function BacktestChart({
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-0.5" style={{ background: "#38bdf8" }} />
           MA20 (MA5&gt;MA20: 정배열, MA5&lt;MA20: 역배열)
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-0.5 border-t border-dashed" style={{ borderColor: "#94a3b8" }} />
+          MA60
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-0.5 border-t border-dashed" style={{ borderColor: "#ec4899" }} />
+          MA120
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-0.5" style={{ background: "#2dd4bf" }} />
+          전환선
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-0.5" style={{ background: "#f472b6" }} />
+          기준선
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-0.5 border-t border-dotted" style={{ borderColor: "#84cc16" }} />
+          선행스팬1
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-0.5 border-t border-dotted" style={{ borderColor: "#fb923c" }} />
+          선행스팬2 (스팬1&gt;스팬2: 양운, 26일 선행이동 없이 당일값 표시)
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block w-2 h-2 rounded-full" style={{ background: "#22c55e" }} />
