@@ -93,6 +93,7 @@ export default function OptimizeTab() {
   const [report, setReport] = useState<OptimizeReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedStock, setExpandedStock] = useState<string | null>(null);
+  const [expandedCombo, setExpandedCombo] = useState<number | null>(null);
 
   async function runOptimize() {
     setLoading(true);
@@ -262,7 +263,9 @@ export default function OptimizeTab() {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold mb-2">상위 {report.topCombos.length}개 조합 (평균 수익률 순)</h3>
+            <h3 className="text-sm font-semibold mb-2">
+              상위 {report.topCombos.length}개 조합 (5개 종목 평균 수익률 순, 행 클릭 시 종목별 수익률 확인)
+            </h3>
             <div className="overflow-x-auto rounded-lg border border-gray-800">
               <table className="w-full text-xs sm:text-sm">
                 <thead className="bg-gray-900 text-gray-400">
@@ -276,22 +279,59 @@ export default function OptimizeTab() {
                 </thead>
                 <tbody>
                   {report.topCombos.map((c, i) => (
-                    <tr
-                      key={i}
-                      className={`border-t border-gray-800 ${i === 0 ? "bg-purple-950/30" : ""}`}
-                    >
-                      <td className="p-2">{i + 1}{i === 0 ? " 🏆" : ""}</td>
-                      <td className="p-2 text-gray-300">{c.buyTags.map(buyLabel).join(" + ")}</td>
-                      <td className="p-2 text-gray-300">{c.sellTags.map(sellLabel).join(" 또는 ")}</td>
-                      <td
-                        className={`p-2 text-right font-medium ${
-                          c.avgReturnPct >= 0 ? "text-red-400" : "text-blue-400"
+                    <>
+                      <tr
+                        key={i}
+                        onClick={() => setExpandedCombo(expandedCombo === i ? null : i)}
+                        className={`border-t border-gray-800 cursor-pointer hover:bg-gray-900/60 ${
+                          i === 0 ? "bg-purple-950/30" : ""
                         }`}
                       >
-                        {c.avgReturnPct.toFixed(2)}%
-                      </td>
-                      <td className="p-2 text-right">{c.totalTrades}</td>
-                    </tr>
+                        <td className="p-2">{i + 1}{i === 0 ? " 🏆" : ""}</td>
+                        <td className="p-2 text-gray-300">{c.buyTags.map(buyLabel).join(" + ")}</td>
+                        <td className="p-2 text-gray-300">{c.sellTags.map(sellLabel).join(" 또는 ")}</td>
+                        <td
+                          className={`p-2 text-right font-medium ${
+                            c.avgReturnPct >= 0 ? "text-red-400" : "text-blue-400"
+                          }`}
+                        >
+                          {c.avgReturnPct.toFixed(2)}%
+                        </td>
+                        <td className="p-2 text-right">{c.totalTrades}</td>
+                      </tr>
+                      {expandedCombo === i && (
+                        <tr key={`${i}-detail`} className="border-t border-gray-800 bg-gray-900/40">
+                          <td colSpan={5} className="p-2">
+                            <table className="w-full text-xs">
+                              <thead className="text-gray-500">
+                                <tr>
+                                  <th className="p-1 text-left whitespace-nowrap">종목</th>
+                                  <th className="p-1 text-right whitespace-nowrap">수익률</th>
+                                  <th className="p-1 text-right whitespace-nowrap">매매횟수</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {c.perStock.map((p) => (
+                                  <tr key={p.stockCode} className="border-t border-gray-800">
+                                    <td className="p-1 whitespace-nowrap">
+                                      {p.stockName} ({p.stockCode})
+                                    </td>
+                                    <td
+                                      className={`p-1 text-right font-medium ${
+                                        p.returnPct >= 0 ? "text-red-400" : "text-blue-400"
+                                      }`}
+                                    >
+                                      {p.returnPct.toFixed(2)}%
+                                    </td>
+                                    <td className="p-1 text-right">{p.trades}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   ))}
                 </tbody>
               </table>
