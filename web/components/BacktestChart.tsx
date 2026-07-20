@@ -6,6 +6,7 @@ import {
   ColorType,
   CandlestickSeries,
   LineSeries,
+  AreaSeries,
   HistogramSeries,
   createSeriesMarkers,
 } from "lightweight-charts";
@@ -80,6 +81,67 @@ export default function BacktestChart({
         mouseWheel: false,
       },
     });
+
+    // 일목균형표 구름대(선행스팬1/2 사이 영역 채우기): 상단(고점) 영역을 채운 뒤,
+    // 그 위에 배경색과 동일한 색으로 하단(저점) 영역을 덮어 두 선 사이만 남기는 방식.
+    // (lightweight-charts에 두 선 사이를 채우는 기능이 없어 Area 시리즈 2개로 구현)
+    // 캔들/가격선보다 먼저 추가해 구름이 항상 가격 아래에 깔리도록 함.
+    const CHART_BG = "#0b0f19";
+    const CLOUD_BULLISH = "rgba(34, 197, 94, 0.18)"; // 양운(스팬1>스팬2)
+    const CLOUD_BEARISH = "rgba(248, 113, 113, 0.18)"; // 음운(스팬1<스팬2)
+
+    type CloudPoint = { time: any; value: number };
+    let run: { upper: CloudPoint[]; lower: CloudPoint[]; bullish: boolean } | null = null;
+    const cloudRuns: { upper: CloudPoint[]; lower: CloudPoint[]; bullish: boolean }[] = [];
+
+    for (const c of candles) {
+      if (c.spanA == null || c.spanB == null) {
+        run = null;
+        continue;
+      }
+      const bullish = c.spanA >= c.spanB;
+      const t = toTime(c.date) as any;
+      const point = { upper: { time: t, value: Math.max(c.spanA, c.spanB) }, lower: { time: t, value: Math.min(c.spanA, c.spanB) } };
+      if (!run || run.bullish !== bullish) {
+        run = { upper: [point.upper], lower: [point.lower], bullish };
+        cloudRuns.push(run);
+      } else {
+        run.upper.push(point.upper);
+        run.lower.push(point.lower);
+      }
+    }
+
+    for (const seg of cloudRuns) {
+      const upperSeries = chart.addSeries(
+        AreaSeries,
+        {
+          topColor: seg.bullish ? CLOUD_BULLISH : CLOUD_BEARISH,
+          bottomColor: seg.bullish ? CLOUD_BULLISH : CLOUD_BEARISH,
+          lineColor: "rgba(0,0,0,0)",
+          lineWidth: 1,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        },
+        0,
+      );
+      upperSeries.setData(seg.upper as any);
+
+      const lowerMaskSeries = chart.addSeries(
+        AreaSeries,
+        {
+          topColor: CHART_BG,
+          bottomColor: CHART_BG,
+          lineColor: "rgba(0,0,0,0)",
+          lineWidth: 1,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        },
+        0,
+      );
+      lowerMaskSeries.setData(seg.lower as any);
+    }
 
     // 가격 pane(0): 캔들 + MA5/MA20 (정배열/역배열을 선으로 바로 확인)
     const candleSeries = chart.addSeries(
@@ -251,21 +313,14 @@ export default function BacktestChart({
         continue;
       }
       if (prev.ma5 <= prev.ma20 && cur.ma5 > cur.ma20) {
-        crossMarkers.push({
-          time: toTime(cur.date) as any,
-          position: "belowBar",
-          color: "#22c55e",
-          shape: "circle",
-          text: "GC",
-        });
+        const t = toTime(cur.date) as any;
+        // 대비색(흰색) 테두리를 먼저 그리고 그 위에 본 마커를 겹쳐 시인성을 높임
+        crossMarkers.push({ time: t, position: "belowBar", color: "#ffffff", shape: "circle", size: 1.8, text: "" });
+        crossMarkers.push({ time: t, position: "belowBar", color: "#22c55e", shape: "circle", size: 1, text: "GC" });
       } else if (prev.ma5 >= prev.ma20 && cur.ma5 < cur.ma20) {
-        crossMarkers.push({
-          time: toTime(cur.date) as any,
-          position: "aboveBar",
-          color: "#f97316",
-          shape: "circle",
-          text: "DC",
-        });
+        const t = toTime(cur.date) as any;
+        crossMarkers.push({ time: t, position: "aboveBar", color: "#ffffff", shape: "circle", size: 1.8, text: "" });
+        crossMarkers.push({ time: t, position: "aboveBar", color: "#f97316", shape: "circle", size: 1, text: "DC" });
       }
     }
 
@@ -341,14 +396,28 @@ export default function BacktestChart({
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-0.5 border-t border-dotted" style={{ borderColor: "#fb923c" }} />
-          선행스팬2 (스팬1&gt;스팬2: 양운, 26일 선행이동 없이 당일값 표시)
+          선행스팬2 (26일 선행이동 없이 당일값 표시)
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-2 h-2 rounded-full" style={{ background: "#22c55e" }} />
+          <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "rgba(34,197,94,0.35)" }} />
+          구름대 양운(스팬1&gt;스팬2)
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "rgba(248,113,113,0.35)" }} />
+          구름대 음운(스팬1&lt;스팬2)
+        </span>
+        <span className="flex items-center gap-1">
+          <span
+            className="inline-block w-2.5 h-2.5 rounded-full"
+            style={{ background: "#22c55e", boxShadow: "0 0 0 1.5px #ffffff" }}
+          />
           GC(골든크로스)
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-2 h-2 rounded-full" style={{ background: "#f97316" }} />
+          <span
+            className="inline-block w-2.5 h-2.5 rounded-full"
+            style={{ background: "#f97316", boxShadow: "0 0 0 1.5px #ffffff" }}
+          />
           DC(데드크로스)
         </span>
         <span className="flex items-center gap-1">
