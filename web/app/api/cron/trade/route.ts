@@ -50,9 +50,9 @@ export async function GET(req: Request) {
       await backfillSignalHistory(pos.stock_code, pos.stock_name, rows);
 
       await sql`
-        INSERT INTO signal_log (stock_code, stock_name, macd, macd_signal, macd_hist, ma5, ma20, signal)
+        INSERT INTO signal_log (stock_code, stock_name, macd, macd_signal, macd_hist, ma5, ma20, signal, reason)
         VALUES (${pos.stock_code}, ${pos.stock_name}, ${rows.at(-1)!.macd}, ${rows.at(-1)!.macdSignal},
-                ${rows.at(-1)!.macdHist}, ${rows.at(-1)!.ma5}, ${rows.at(-1)!.ma20}, ${result.signal})
+                ${rows.at(-1)!.macdHist}, ${rows.at(-1)!.ma5}, ${rows.at(-1)!.ma20}, ${result.signal}, ${result.reason})
       `;
 
       if (result.signal === "SELL") {
@@ -96,9 +96,9 @@ export async function GET(req: Request) {
           await backfillSignalHistory(stock.code, stock.name, rows);
 
           await sql`
-            INSERT INTO signal_log (stock_code, stock_name, macd, macd_signal, macd_hist, ma5, ma20, signal)
+            INSERT INTO signal_log (stock_code, stock_name, macd, macd_signal, macd_hist, ma5, ma20, signal, reason)
             VALUES (${stock.code}, ${stock.name}, ${rows.at(-1)!.macd}, ${rows.at(-1)!.macdSignal},
-                    ${rows.at(-1)!.macdHist}, ${rows.at(-1)!.ma5}, ${rows.at(-1)!.ma20}, ${result.signal})
+                    ${rows.at(-1)!.macdHist}, ${rows.at(-1)!.ma5}, ${rows.at(-1)!.ma20}, ${result.signal}, ${result.reason})
           `;
 
           if (result.signal === "BUY") {

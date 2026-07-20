@@ -1,25 +1,15 @@
 import BacktestTab from "@/components/BacktestTab";
-import MacdChart from "@/components/MacdChart";
 import { isDbConfigured } from "@/lib/db";
-import { getPositions, getRecentTrades, getSignalHistory, getTrackedStockCodes } from "@/lib/queries";
+import { getBuyCandidates, getPositions, getRecentTrades } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
-export default async function Home({
-  searchParams,
-}: {
-  searchParams: Promise<{ code?: string }>;
-}) {
-  const { code } = await searchParams;
-
-  const [trades, positions, trackedStocks] = await Promise.all([
+export default async function Home() {
+  const [trades, positions, candidates] = await Promise.all([
     getRecentTrades(50),
     getPositions(),
-    getTrackedStockCodes(20),
+    getBuyCandidates(20),
   ]);
-
-  const selectedCode = code ?? trackedStocks[0]?.stock_code;
-  const signalHistory = selectedCode ? await getSignalHistory(selectedCode) : [];
 
   return (
     <div className="min-h-screen bg-[#0b0f19] text-gray-200 p-8 font-sans">
@@ -116,35 +106,45 @@ export default async function Home({
         </div>
       </section>
 
-      <section>
-        <h2 className="text-lg font-semibold mb-3">MACD / 시그널 차트</h2>
-        <div className="flex gap-2 mb-3 flex-wrap">
-          {trackedStocks.map((s) => (
-            <a
-              key={s.stock_code}
-              href={`/?code=${s.stock_code}`}
-              className={`px-3 py-1 rounded text-sm border ${
-                s.stock_code === selectedCode
-                  ? "bg-blue-600 border-blue-600 text-white"
-                  : "border-gray-700 text-gray-400 hover:border-gray-500"
-              }`}
-            >
-              {s.stock_name ?? s.stock_code}
-            </a>
-          ))}
-          {trackedStocks.length === 0 && (
-            <span className="text-gray-500 text-sm">
-              아직 스캔된 종목이 없습니다 (cron 실행 후 표시됩니다)
-            </span>
-          )}
+      <section className="mb-8">
+        <h2 className="text-lg font-semibold mb-3">매매 후보 종목 ({candidates.length})</h2>
+        <div className="overflow-x-auto rounded-lg border border-gray-800">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-900 text-gray-400">
+              <tr>
+                <th className="p-2 text-left">종목</th>
+                <th className="p-2 text-left">후보 사유</th>
+                <th className="p-2 text-right">MACD</th>
+                <th className="p-2 text-right">MA5</th>
+                <th className="p-2 text-right">MA20</th>
+                <th className="p-2 text-right">스캔 시각</th>
+              </tr>
+            </thead>
+            <tbody>
+              {candidates.map((c) => (
+                <tr key={c.stock_code} className="border-t border-gray-800">
+                  <td className="p-2">
+                    {c.stock_name ?? c.stock_code} ({c.stock_code})
+                  </td>
+                  <td className="p-2 text-gray-300">{c.reason ?? "-"}</td>
+                  <td className="p-2 text-right">{Number(c.macd).toFixed(1)}</td>
+                  <td className="p-2 text-right">{Number(c.ma5).toLocaleString()}</td>
+                  <td className="p-2 text-right">{Number(c.ma20).toLocaleString()}</td>
+                  <td className="p-2 text-right text-gray-500">
+                    {new Date(c.created_at).toLocaleString("ko-KR")}
+                  </td>
+                </tr>
+              ))}
+              {candidates.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="p-4 text-center text-gray-500">
+                    현재 매수 시그널이 뜬 후보 종목이 없습니다 (cron 실행 후 표시됩니다)
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-        {signalHistory.length > 0 ? (
-          <div className="rounded-lg border border-gray-800 p-2">
-            <MacdChart data={signalHistory} />
-          </div>
-        ) : (
-          <p className="text-gray-500 text-sm">선택된 종목의 시그널 기록이 없습니다.</p>
-        )}
       </section>
 
       <BacktestTab />

@@ -31,6 +31,7 @@ export interface SignalRow {
   ma5: string;
   ma20: string;
   signal: string;
+  reason: string | null;
   created_at: string;
 }
 
@@ -118,6 +119,24 @@ export async function getSignalHistory(
       LIMIT ${limit}
     `;
     return rows as unknown as SignalRow[];
+  } catch {
+    return [];
+  }
+}
+
+/** 종목별 가장 최근 스캔에서 매수(BUY) 시그널이 뜬, 현재 매매 후보 종목 목록 */
+export async function getBuyCandidates(limit = 20): Promise<SignalRow[]> {
+  try {
+    await ensureSchema();
+    const rows = await sql`
+      SELECT DISTINCT ON (stock_code) *
+      FROM signal_log
+      WHERE signal = 'BUY'
+      ORDER BY stock_code, created_at DESC
+    `;
+    return (rows as unknown as SignalRow[])
+      .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+      .slice(0, limit);
   } catch {
     return [];
   }

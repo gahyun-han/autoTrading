@@ -72,9 +72,11 @@ export async function ensureSchema() {
       ma5 NUMERIC,
       ma20 NUMERIC,
       signal TEXT,
+      reason TEXT,
       created_at TIMESTAMPTZ DEFAULT now()
     )
   `;
+  await sql`ALTER TABLE signal_log ADD COLUMN IF NOT EXISTS reason TEXT`;
 
   initialized = true;
 }
