@@ -1,4 +1,6 @@
 import {
+  BB_PERIOD,
+  BB_STDDEV_MULT,
   ICHIMOKU_BASE,
   ICHIMOKU_CONVERSION,
   ICHIMOKU_SPAN_B,
@@ -33,6 +35,9 @@ export interface IndicatorRow extends Candle {
   kijun: number; // 일목균형표 기준선
   spanA: number; // 일목균형표 선행스팬1 ((전환선+기준선)/2)
   spanB: number; // 일목균형표 선행스팬2 (52일 최고/최저 중간값)
+  bbMid: number; // 볼린저밴드 중심선 (20일 SMA)
+  bbUpper: number; // 볼린저밴드 상단 (중심선 + 2*표준편차)
+  bbLower: number; // 볼린저밴드 하단 (중심선 - 2*표준편차)
 }
 
 function ema(values: number[], span: number): number[] {
@@ -84,6 +89,22 @@ function sma(values: number[], window: number): number[] {
   return out;
 }
 
+/** 볼린저밴드: N일 SMA 중심선 ± (표준편차 * mult) 상/하단 */
+function bollingerBands(closes: number[], period: number, mult: number) {
+  const mid = sma(closes, period);
+  const upper: number[] = new Array(closes.length).fill(NaN);
+  const lower: number[] = new Array(closes.length).fill(NaN);
+  for (let i = period - 1; i < closes.length; i++) {
+    const slice = closes.slice(i - period + 1, i + 1);
+    const mean = mid[i];
+    const variance = slice.reduce((s, v) => s + (v - mean) ** 2, 0) / period;
+    const sd = Math.sqrt(variance);
+    upper[i] = mean + mult * sd;
+    lower[i] = mean - mult * sd;
+  }
+  return { mid, upper, lower };
+}
+
 /** 최근 window 기간의 (최고가+최저가)/2 (일목균형표 전환선/기준선/스팬2 계산용) */
 function midpointHighLow(highs: number[], lows: number[], window: number): number[] {
   const out: number[] = new Array(highs.length).fill(NaN);
@@ -121,6 +142,7 @@ export function calculateIndicators(candles: Candle[]): IndicatorRow[] {
   const kijun = midpointHighLow(highs, lows, ICHIMOKU_BASE);
   const spanA = tenkan.map((v, i) => (Number.isNaN(v) || Number.isNaN(kijun[i]) ? NaN : (v + kijun[i]) / 2));
   const spanB = midpointHighLow(highs, lows, ICHIMOKU_SPAN_B);
+  const bb = bollingerBands(closes, BB_PERIOD, BB_STDDEV_MULT);
 
   return candles.map((c, i) => ({
     ...c,
@@ -136,5 +158,8 @@ export function calculateIndicators(candles: Candle[]): IndicatorRow[] {
     kijun: kijun[i],
     spanA: spanA[i],
     spanB: spanB[i],
+    bbMid: bb.mid[i],
+    bbUpper: bb.upper[i],
+    bbLower: bb.lower[i],
   }));
 }

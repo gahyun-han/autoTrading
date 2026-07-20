@@ -50,6 +50,7 @@ export function runBacktest(
   backtestStartDate: string,
   investPerStock: number,
   buySignalFn: (rows: IndicatorRow[]) => SignalResult = checkBuySignal,
+  sellSignalFn: (rows: IndicatorRow[], avgBuyPrice: number) => SignalResult = checkSellSignal,
 ): BacktestResult {
   const trades: BacktestTrade[] = [];
   let cash = investPerStock;
@@ -64,7 +65,7 @@ export function runBacktest(
     const today = rows[i];
 
     if (qty > 0) {
-      const result = checkSellSignal(upToNow, avgPrice);
+      const result = sellSignalFn(upToNow, avgPrice);
       if (result.signal === "SELL") {
         cash += qty * today.close;
         trades.push({ date: today.date, side: "SELL", price: today.close, qty, reason: result.reason });

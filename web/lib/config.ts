@@ -29,8 +29,13 @@ export const ICHIMOKU_SPAN_B = 52; // 선행스팬2
 // 전략 파라미터
 export const GC_WINDOW = 5; // 골든크로스 인정 기간 (일)
 export const STOP_LOSS_PCT = -20; // 손절 %
-export const TAKE_PROFIT_PCT = 15; // 익절 %
+export const TAKE_PROFIT_PCT = 15; // 익절 % (상한)
+export const TAKE_PROFIT_RANGE_MIN = 7; // 익절 구간 매도 하한 % (+7%~+15% 구간 매도용)
 export const MAX_POSITION = 7; // 최대 동시 보유 종목 수
+
+// 볼린저밴드 파라미터
+export const BB_PERIOD = 20;
+export const BB_STDDEV_MULT = 2;
 export const INVEST_PER_STOCK = 500_000; // 종목당 투자금 (원)
 export const VOLUME_SURGE_MULT = 1.5; // 거래량 평균 대비 배율 (이상 급등 필터)
 export const UNIVERSE_SIZE = 100; // 코스피+코스닥 시가총액 상위 N개

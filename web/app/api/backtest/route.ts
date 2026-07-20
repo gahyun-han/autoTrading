@@ -3,8 +3,8 @@ import { runBacktest } from "@/lib/backtest";
 import { INVEST_PER_STOCK } from "@/lib/config";
 import { calculateIndicators } from "@/lib/indicators";
 import { fetchDailyOhlcv } from "@/lib/market";
-import { PRESET_DEFAULT } from "@/lib/conditionTags";
-import { checkCustomBuySignal } from "@/lib/strategy";
+import { PRESET_DEFAULT, SELL_PRESET_DEFAULT } from "@/lib/conditionTags";
+import { checkCustomBuySignal, checkCustomSellSignal } from "@/lib/strategy";
 
 export const maxDuration = 60;
 
@@ -29,6 +29,9 @@ export async function GET(req: Request) {
   const tagsParam = searchParams.get("tags");
   const tags = tagsParam ? tagsParam.split(",").filter(Boolean) : PRESET_DEFAULT;
   const buySignalFn = checkCustomBuySignal(tags);
+  const sellTagsParam = searchParams.get("sellTags");
+  const sellTags = sellTagsParam ? sellTagsParam.split(",").filter(Boolean) : SELL_PRESET_DEFAULT;
+  const sellSignalFn = checkCustomSellSignal(sellTags);
 
   const end = new Date();
   const start = new Date();
@@ -41,7 +44,15 @@ export async function GET(req: Request) {
       const rows = calculateIndicators(candles);
       // KIS가 실제로 반환한 전체 기간(최대 100거래일)을 그대로 시뮬레이션 대상으로 사용
       results.push(
-        runBacktest(t.code, t.name, rows, rows[0]?.date ?? fmt(start), INVEST_PER_STOCK, buySignalFn),
+        runBacktest(
+          t.code,
+          t.name,
+          rows,
+          rows[0]?.date ?? fmt(start),
+          INVEST_PER_STOCK,
+          buySignalFn,
+          sellSignalFn,
+        ),
       );
     } catch (e: any) {
       results.push({ stockCode: t.code, stockName: t.name, error: e.message });
@@ -51,6 +62,7 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     tags,
+    sellTags,
     dataStart: fmt(start),
     dataEnd: fmt(end),
     results,

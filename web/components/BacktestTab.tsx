@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import BacktestChart from "@/components/BacktestChart";
-import { PRESET_CONFLUENCE, PRESET_DEFAULT, TAG_META } from "@/lib/conditionTags";
+import {
+  PRESET_CONFLUENCE,
+  PRESET_DEFAULT,
+  SELL_PRESET_DEFAULT,
+  SELL_PRESET_TREND,
+  SELL_TAG_META,
+  TAG_META,
+} from "@/lib/conditionTags";
 
 interface BacktestTrade {
   date: string;
@@ -48,9 +55,11 @@ function fmtDate(d: string) {
 }
 
 const TAG_CATEGORIES = Array.from(new Set(TAG_META.map((t) => t.category)));
+const SELL_TAG_CATEGORIES = Array.from(new Set(SELL_TAG_META.map((t) => t.category)));
 
 export default function BacktestTab() {
   const [selectedTags, setSelectedTags] = useState<string[]>(PRESET_DEFAULT);
+  const [selectedSellTags, setSelectedSellTags] = useState<string[]>(SELL_PRESET_DEFAULT);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<BacktestResult[] | null>(null);
   const [dataStart, setDataStart] = useState<string | null>(null);
@@ -63,11 +72,17 @@ export default function BacktestTab() {
     setSelectedTags((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
   }
 
+  function toggleSellTag(id: string) {
+    setSelectedSellTags((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
+  }
+
   async function runBacktest() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/backtest?tags=${selectedTags.join(",")}`);
+      const res = await fetch(
+        `/api/backtest?tags=${selectedTags.join(",")}&sellTags=${selectedSellTags.join(",")}`,
+      );
       if (!res.ok) throw new Error(`요청 실패: ${res.status}`);
       const data = await res.json();
       setResults(data.results);
@@ -131,11 +146,61 @@ export default function BacktestTab() {
         ))}
       </div>
 
+      <div className="flex items-center gap-2 sm:gap-3 mb-3 flex-wrap">
+        <span className="text-xs text-gray-500">매도 조건</span>
+        <button
+          onClick={() => setSelectedSellTags(SELL_PRESET_DEFAULT)}
+          className="text-xs px-2.5 py-1.5 rounded border border-gray-700 text-gray-400 hover:border-gray-500"
+        >
+          프리셋: 기존 전략
+        </button>
+        <button
+          onClick={() => setSelectedSellTags(SELL_PRESET_TREND)}
+          className="text-xs px-2.5 py-1.5 rounded border border-gray-700 text-gray-400 hover:border-gray-500"
+        >
+          프리셋: 추세추종
+        </button>
+        <button
+          onClick={() => setSelectedSellTags([])}
+          className="text-xs px-2.5 py-1.5 rounded border border-gray-700 text-gray-400 hover:border-gray-500"
+        >
+          전체 해제
+        </button>
+      </div>
+
+      <div className="mb-3 space-y-2">
+        {SELL_TAG_CATEGORIES.map((cat) => (
+          <div key={cat} className="flex items-start sm:items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-500 w-full sm:w-16 shrink-0">{cat}</span>
+            {SELL_TAG_META.filter((t) => t.category === cat).map((t) => {
+              const active = selectedSellTags.includes(t.id);
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => toggleSellTag(t.id)}
+                  className={`text-xs px-2.5 py-1.5 rounded-full border transition-colors ${
+                    active
+                      ? "bg-orange-600 border-orange-600 text-white"
+                      : "border-gray-700 text-gray-400 hover:border-gray-500"
+                  }`}
+                >
+                  #{t.label}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
       <div className="flex items-center gap-3 mb-3 flex-wrap">
         <p className="text-xs text-gray-400">
-          선택된 조건 ({selectedTags.length}개, AND 결합):{" "}
+          매수 조건 ({selectedTags.length}개, AND 결합):{" "}
           {selectedTags.length > 0
             ? selectedTags.map((id) => TAG_META.find((t) => t.id === id)?.label ?? id).join(" + ")
+            : "없음"}
+          {" · "}매도 조건 ({selectedSellTags.length}개, OR 결합):{" "}
+          {selectedSellTags.length > 0
+            ? selectedSellTags.map((id) => SELL_TAG_META.find((t) => t.id === id)?.label ?? id).join(" 또는 ")
             : "없음"}
         </p>
         <button

@@ -4,9 +4,10 @@ import {
   RSI_REBOUND_WINDOW,
   STOP_LOSS_PCT,
   TAKE_PROFIT_PCT,
+  TAKE_PROFIT_RANGE_MIN,
   VOLUME_SURGE_MULT,
 } from "./config";
-import { TAG_META } from "./conditionTags";
+import { SELL_TAG_META, TAG_META } from "./conditionTags";
 import type { IndicatorRow } from "./indicators";
 
 export type Signal = "BUY" | "SELL" | "HOLD";
@@ -92,6 +93,77 @@ function averageVolume(rows: IndicatorRow[], lookback = 20): number {
   const slice = rows.slice(-lookback - 1, -1); // 오늘 제외 직전 lookback일
   if (slice.length === 0) return 0;
   return slice.reduce((sum, r) => sum + r.volume, 0) / slice.length;
+}
+
+/** MA20 기울기가 직전(상승/보합, >=0)에서 이번(하락, <0)으로 전환됐는지 */
+function ma20SlopeTurnedNegative(rows: IndicatorRow[]): boolean {
+  const n = rows.length;
+  if (n < 3) return false;
+  const a = rows[n - 3].ma20;
+  const b = rows[n - 2].ma20;
+  const c = rows[n - 1].ma20;
+  if (Number.isNaN(a) || Number.isNaN(b) || Number.isNaN(c)) return false;
+  const prevSlope = b - a;
+  const curSlope = c - b;
+  return prevSlope >= 0 && curSlope < 0;
+}
+
+/** 최근 N일 내 RSI가 과매수(threshold) 이상을 찍은 뒤 현재는 그 아래로 이탈했는지 */
+function rsiExitFromOverbought(rows: IndicatorRow[], window: number, threshold = 70): boolean {
+  const n = rows.length;
+  const cur = rows[n - 1];
+  if (Number.isNaN(cur.rsi) || cur.rsi >= threshold) return false;
+  for (let i = Math.max(0, n - 1 - window); i < n - 1; i++) {
+    if (rows[i].rsi >= threshold) return true;
+  }
+  return false;
+}
+
+/** 최근 N일 내 볼린저 상단을 터치한 뒤, 현재 종가가 상단 아래로 되돌아왔는지 (되돌림/추세 실패) */
+function bollingerUpperTouchThenBack(rows: IndicatorRow[], window: number): boolean {
+  const n = rows.length;
+  const cur = rows[n - 1];
+  if (Number.isNaN(cur.bbUpper) || cur.close >= cur.bbUpper) return false;
+  for (let i = Math.max(0, n - 1 - window); i < n - 1; i++) {
+    if (!Number.isNaN(rows[i].bbUpper) && rows[i].close >= rows[i].bbUpper) return true;
+  }
+  return false;
+}
+
+/** 종가가 볼린저 하단을 이탈했는지 (추세 붕괴) */
+function bollingerLowerBreak(rows: IndicatorRow[]): boolean {
+  const c = rows.at(-1)!;
+  return !Number.isNaN(c.bbLower) && c.close < c.bbLower;
+}
+
+/** 종가가 일목균형표 구름대 아래로 하향 이탈했는지 */
+function closeBelowCloud(rows: IndicatorRow[]): boolean {
+  const c = rows.at(-1)!;
+  if (Number.isNaN(c.spanA) || Number.isNaN(c.spanB)) return false;
+  return c.close < Math.min(c.spanA, c.spanB);
+}
+
+/** 전환선이 기준선을 하향 돌파했는지 (일목균형표 데드크로스) */
+function tenkanCrossedDownKijun(rows: IndicatorRow[]): boolean {
+  const n = rows.length;
+  if (n < 2) return false;
+  const prev = rows[n - 2];
+  const cur = rows[n - 1];
+  if (
+    Number.isNaN(prev.tenkan) ||
+    Number.isNaN(prev.kijun) ||
+    Number.isNaN(cur.tenkan) ||
+    Number.isNaN(cur.kijun)
+  ) {
+    return false;
+  }
+  return prev.tenkan >= prev.kijun && cur.tenkan < cur.kijun;
+}
+
+/** 거래량 급증 + 음봉 (대량 매물 출회로 해석되는 분산일) */
+function volumeClimaxDown(rows: IndicatorRow[]): boolean {
+  const c = rows.at(-1)!;
+  return c.volume >= averageVolume(rows) * VOLUME_SURGE_MULT && c.close < c.open;
 }
 
 /**
@@ -230,5 +302,65 @@ export function checkCustomBuySignal(tagIds: string[]): (rows: IndicatorRow[]) =
       };
     }
     return { signal: "BUY", reason: evaluated.map((e) => e.label).join("+") };
+  };
+}
+
+/** 태그(해시태그) 조합 커스텀 매도 조건 판정용 개별 체크 함수 모음 (다른 트레이더들이 참고하는 지표 다수 포함) */
+const SELL_TAG_CHECKS: Record<string, (rows: IndicatorRow[], avgBuyPrice: number) => boolean> = {
+  "sell-stop-loss-20": (rows, avg) => {
+    const c = rows.at(-1)!;
+    return ((c.close - avg) / avg) * 100 <= STOP_LOSS_PCT;
+  },
+  "sell-take-profit-15": (rows, avg) => {
+    const c = rows.at(-1)!;
+    return ((c.close - avg) / avg) * 100 >= TAKE_PROFIT_PCT;
+  },
+  "sell-profit-range-7to15": (rows, avg) => {
+    const c = rows.at(-1)!;
+    const pct = ((c.close - avg) / avg) * 100;
+    return pct >= TAKE_PROFIT_RANGE_MIN && pct <= TAKE_PROFIT_PCT;
+  },
+  "sell-ma20-slope-turn-negative": (rows) => ma20SlopeTurnedNegative(rows),
+  "sell-dead-cross": (rows) => deadCrossJustHappened(rows),
+  "sell-macd-hist-negative-turn": (rows) => macdHistTurnedNegative(rows),
+  "sell-macd-below-zero": (rows) => rows.at(-1)!.macd <= 0,
+  "sell-rsi-overbought-exit": (rows) => rsiExitFromOverbought(rows, RSI_REBOUND_WINDOW, 70),
+  "sell-bollinger-upper-break-back": (rows) => bollingerUpperTouchThenBack(rows, RSI_REBOUND_WINDOW),
+  "sell-bollinger-lower-break": (rows) => bollingerLowerBreak(rows),
+  "sell-ichimoku-close-below-cloud": (rows) => closeBelowCloud(rows),
+  "sell-ichimoku-dead-cross": (rows) => tenkanCrossedDownKijun(rows),
+  "sell-volume-climax": (rows) => volumeClimaxDown(rows),
+};
+
+/**
+ * 사용자가 선택한 매도 조건 태그 조합을 OR로 판정 (하나라도 충족하면 SELL).
+ * 선택된 태그가 없으면 항상 HOLD (자동 매도하지 않음).
+ */
+export function checkCustomSellSignal(
+  tagIds: string[],
+): (rows: IndicatorRow[], avgBuyPrice: number) => SignalResult {
+  return (rows: IndicatorRow[], avgBuyPrice: number): SignalResult => {
+    const cur = rows.at(-1)!;
+    const changePct = ((cur.close - avgBuyPrice) / avgBuyPrice) * 100;
+
+    if (tagIds.length === 0) {
+      return { signal: "HOLD", reason: `선택된 매도 조건 없음 (${changePct.toFixed(1)}%)` };
+    }
+
+    const labelOf = (id: string) => SELL_TAG_META.find((t) => t.id === id)?.label ?? id;
+    const evaluated = tagIds.map((id) => ({
+      id,
+      label: labelOf(id),
+      met: SELL_TAG_CHECKS[id] ? SELL_TAG_CHECKS[id](rows, avgBuyPrice) : false,
+    }));
+
+    const metOnes = evaluated.filter((e) => e.met);
+    if (metOnes.length === 0) {
+      return { signal: "HOLD", reason: `보유 유지 (${changePct.toFixed(1)}%)` };
+    }
+    return {
+      signal: "SELL",
+      reason: `${metOnes.map((e) => e.label).join(" / ")} (${changePct.toFixed(1)}%)`,
+    };
   };
 }
