@@ -121,7 +121,18 @@ export default function BacktestTab() {
               {results.map((r) => (
                 <>
                   <tr key={r.stockCode} className="border-t border-gray-800">
-                    <td className="p-2">
+                    <td
+                      className={`p-2 ${
+                        !r.error && r.candles && r.candles.length > 0
+                          ? "cursor-pointer hover:text-blue-400 hover:underline"
+                          : ""
+                      }`}
+                      onClick={() => {
+                        if (!r.error && r.candles && r.candles.length > 0) {
+                          setExpanded(expanded === r.stockCode ? null : r.stockCode);
+                        }
+                      }}
+                    >
                       {r.stockName} ({r.stockCode})
                     </td>
                     {r.error ? (
