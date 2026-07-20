@@ -83,23 +83,25 @@ export default function BacktestTab() {
 
   return (
     <section className="mb-8">
-      <div className="flex items-center gap-3 mb-3 flex-wrap">
-        <h2 className="text-lg font-semibold">백테스트 (KIS 최대 조회기간, 약 100거래일)</h2>
+      <div className="flex items-center gap-2 sm:gap-3 mb-3 flex-wrap">
+        <h2 className="text-base sm:text-lg font-semibold w-full sm:w-auto">
+          백테스트 (KIS 최대 조회기간, 약 100거래일)
+        </h2>
         <button
           onClick={() => setSelectedTags(PRESET_DEFAULT)}
-          className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:border-gray-500"
+          className="text-xs px-2.5 py-1.5 rounded border border-gray-700 text-gray-400 hover:border-gray-500"
         >
           프리셋: 기존 전략
         </button>
         <button
           onClick={() => setSelectedTags(PRESET_CONFLUENCE)}
-          className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:border-gray-500"
+          className="text-xs px-2.5 py-1.5 rounded border border-gray-700 text-gray-400 hover:border-gray-500"
         >
           프리셋: 합류 전략
         </button>
         <button
           onClick={() => setSelectedTags([])}
-          className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:border-gray-500"
+          className="text-xs px-2.5 py-1.5 rounded border border-gray-700 text-gray-400 hover:border-gray-500"
         >
           전체 해제
         </button>
@@ -107,15 +109,15 @@ export default function BacktestTab() {
 
       <div className="mb-3 space-y-2">
         {TAG_CATEGORIES.map((cat) => (
-          <div key={cat} className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-gray-500 w-16 shrink-0">{cat}</span>
+          <div key={cat} className="flex items-start sm:items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-500 w-full sm:w-16 shrink-0">{cat}</span>
             {TAG_META.filter((t) => t.category === cat).map((t) => {
               const active = selectedTags.includes(t.id);
               return (
                 <button
                   key={t.id}
                   onClick={() => toggleTag(t.id)}
-                  className={`text-xs px-2 py-1 rounded-full border transition-colors ${
+                  className={`text-xs px-2.5 py-1.5 rounded-full border transition-colors ${
                     active
                       ? "bg-blue-600 border-blue-600 text-white"
                       : "border-gray-700 text-gray-400 hover:border-gray-500"
@@ -139,7 +141,7 @@ export default function BacktestTab() {
         <button
           onClick={runBacktest}
           disabled={loading}
-          className="px-3 py-1 rounded text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3 py-2 rounded text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "실행 중..." : "백테스트 실행"}
         </button>
@@ -157,14 +159,14 @@ export default function BacktestTab() {
 
       {results && (
         <div className="overflow-x-auto rounded-lg border border-gray-800">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs sm:text-sm">
             <thead className="bg-gray-900 text-gray-400">
               <tr>
-                <th className="p-2 text-left">종목</th>
-                <th className="p-2 text-right">투자금</th>
-                <th className="p-2 text-right">최종평가액</th>
-                <th className="p-2 text-right">수익률</th>
-                <th className="p-2 text-right">매매횟수</th>
+                <th className="p-2 text-left whitespace-nowrap">종목</th>
+                <th className="p-2 text-right whitespace-nowrap">투자금</th>
+                <th className="p-2 text-right whitespace-nowrap">최종평가액</th>
+                <th className="p-2 text-right whitespace-nowrap">수익률</th>
+                <th className="p-2 text-right whitespace-nowrap">매매횟수</th>
                 <th className="p-2 text-left"></th>
               </tr>
             </thead>
@@ -226,34 +228,36 @@ export default function BacktestTab() {
                           <BacktestChart candles={r.candles} trades={r.trades ?? []} />
                         </div>
                         {r.trades && r.trades.length > 0 ? (
-                          <table className="w-full text-xs">
-                            <thead className="text-gray-500">
-                              <tr>
-                                <th className="p-1 text-left">날짜</th>
-                                <th className="p-1 text-left">구분</th>
-                                <th className="p-1 text-right">가격</th>
-                                <th className="p-1 text-right">수량</th>
-                                <th className="p-1 text-left">사유</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {r.trades.map((t, i) => (
-                                <tr key={i} className="border-t border-gray-800">
-                                  <td className="p-1">{fmtDate(t.date)}</td>
-                                  <td
-                                    className={`p-1 font-medium ${
-                                      t.side === "BUY" ? "text-red-400" : "text-blue-400"
-                                    }`}
-                                  >
-                                    {t.side === "BUY" ? "매수" : "매도"}
-                                  </td>
-                                  <td className="p-1 text-right">{t.price.toLocaleString()}</td>
-                                  <td className="p-1 text-right">{t.qty}</td>
-                                  <td className="p-1 text-gray-400">{t.reason}</td>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead className="text-gray-500">
+                                <tr>
+                                  <th className="p-1 text-left whitespace-nowrap">날짜</th>
+                                  <th className="p-1 text-left whitespace-nowrap">구분</th>
+                                  <th className="p-1 text-right whitespace-nowrap">가격</th>
+                                  <th className="p-1 text-right whitespace-nowrap">수량</th>
+                                  <th className="p-1 text-left min-w-[160px]">사유</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                              </thead>
+                              <tbody>
+                                {r.trades.map((t, i) => (
+                                  <tr key={i} className="border-t border-gray-800">
+                                    <td className="p-1 whitespace-nowrap">{fmtDate(t.date)}</td>
+                                    <td
+                                      className={`p-1 font-medium whitespace-nowrap ${
+                                        t.side === "BUY" ? "text-red-400" : "text-blue-400"
+                                      }`}
+                                    >
+                                      {t.side === "BUY" ? "매수" : "매도"}
+                                    </td>
+                                    <td className="p-1 text-right whitespace-nowrap">{t.price.toLocaleString()}</td>
+                                    <td className="p-1 text-right whitespace-nowrap">{t.qty}</td>
+                                    <td className="p-1 text-gray-400">{t.reason}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                         ) : (
                           <p className="text-xs text-gray-500">해당 기간 매매 내역 없음</p>
                         )}

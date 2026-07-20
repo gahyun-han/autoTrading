@@ -54,11 +54,13 @@ export default function BacktestChart({
   useEffect(() => {
     if (!containerRef.current) return;
 
+    const isMobile = window.innerWidth < 640;
+
     const chart = createChart(containerRef.current, {
       layout: { background: { type: ColorType.Solid, color: "#0b0f19" }, textColor: "#d1d5db" },
       grid: { vertLines: { color: "#1f2937" }, horzLines: { color: "#1f2937" } },
       width: containerRef.current.clientWidth,
-      height: 420,
+      height: isMobile ? 320 : 420,
     });
 
     // 가격 pane(0): 캔들 + MA5/MA20 (정배열/역배열을 선으로 바로 확인)
@@ -212,7 +214,7 @@ export default function BacktestChart({
     );
 
     const panes = chart.panes();
-    if (panes.length > 1) panes[1].setHeight(120);
+    if (panes.length > 1) panes[1].setHeight(isMobile ? 90 : 120);
 
     const tradeMarkers: any[] = trades.map((t) => ({
       time: toTime(t.date) as any,
@@ -290,7 +292,7 @@ export default function BacktestChart({
   return (
     <div className="w-full">
       <div ref={containerRef} className="w-full" />
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-[11px] text-gray-400">
+      <div className="flex flex-wrap items-center gap-x-2 sm:gap-x-4 gap-y-1 mt-1 text-[10px] sm:text-[11px] text-gray-400">
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-0.5" style={{ background: "#facc15" }} />
           MA5

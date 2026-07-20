@@ -12,8 +12,8 @@ export default async function Home() {
   ]);
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-gray-200 p-8 font-sans">
-      <h1 className="text-2xl font-bold mb-6">autoTrading 대시보드</h1>
+    <div className="min-h-screen bg-[#0b0f19] text-gray-200 p-3 sm:p-8 font-sans">
+      <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">autoTrading 대시보드</h1>
 
       {!isDbConfigured() && (
         <div className="mb-6 rounded-lg border border-yellow-700 bg-yellow-950/40 p-4 text-sm text-yellow-300">
@@ -22,27 +22,27 @@ export default async function Home() {
         </div>
       )}
 
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold mb-3">보유 포지션 ({positions.length})</h2>
+      <section className="mb-6 sm:mb-8">
+        <h2 className="text-base sm:text-lg font-semibold mb-3">보유 포지션 ({positions.length})</h2>
         <div className="overflow-x-auto rounded-lg border border-gray-800">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs sm:text-sm">
             <thead className="bg-gray-900 text-gray-400">
               <tr>
-                <th className="p-2 text-left">종목코드</th>
-                <th className="p-2 text-left">종목명</th>
-                <th className="p-2 text-right">수량</th>
-                <th className="p-2 text-right">평단가</th>
-                <th className="p-2 text-right">갱신시각</th>
+                <th className="p-2 text-left whitespace-nowrap">종목코드</th>
+                <th className="p-2 text-left whitespace-nowrap">종목명</th>
+                <th className="p-2 text-right whitespace-nowrap">수량</th>
+                <th className="p-2 text-right whitespace-nowrap">평단가</th>
+                <th className="p-2 text-right whitespace-nowrap">갱신시각</th>
               </tr>
             </thead>
             <tbody>
               {positions.map((p) => (
                 <tr key={p.stock_code} className="border-t border-gray-800">
-                  <td className="p-2">{p.stock_code}</td>
-                  <td className="p-2">{p.stock_name}</td>
-                  <td className="p-2 text-right">{p.qty}</td>
-                  <td className="p-2 text-right">{Number(p.avg_price).toLocaleString()}</td>
-                  <td className="p-2 text-right text-gray-500">
+                  <td className="p-2 whitespace-nowrap">{p.stock_code}</td>
+                  <td className="p-2 whitespace-nowrap">{p.stock_name}</td>
+                  <td className="p-2 text-right whitespace-nowrap">{p.qty}</td>
+                  <td className="p-2 text-right whitespace-nowrap">{Number(p.avg_price).toLocaleString()}</td>
+                  <td className="p-2 text-right text-gray-500 whitespace-nowrap">
                     {new Date(p.updated_at).toLocaleString("ko-KR")}
                   </td>
                 </tr>
@@ -59,39 +59,39 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold mb-3">매매 체결 로그 (최근 50건)</h2>
+      <section className="mb-6 sm:mb-8">
+        <h2 className="text-base sm:text-lg font-semibold mb-3">매매 체결 로그 (최근 50건)</h2>
         <div className="overflow-x-auto rounded-lg border border-gray-800">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs sm:text-sm">
             <thead className="bg-gray-900 text-gray-400">
               <tr>
-                <th className="p-2 text-left">시각</th>
-                <th className="p-2 text-left">종목</th>
-                <th className="p-2 text-left">구분</th>
-                <th className="p-2 text-right">수량</th>
-                <th className="p-2 text-right">가격</th>
-                <th className="p-2 text-left">사유</th>
+                <th className="p-2 text-left whitespace-nowrap">시각</th>
+                <th className="p-2 text-left whitespace-nowrap">종목</th>
+                <th className="p-2 text-left whitespace-nowrap">구분</th>
+                <th className="p-2 text-right whitespace-nowrap">수량</th>
+                <th className="p-2 text-right whitespace-nowrap">가격</th>
+                <th className="p-2 text-left whitespace-nowrap">사유</th>
               </tr>
             </thead>
             <tbody>
               {trades.map((t) => (
                 <tr key={t.id} className="border-t border-gray-800">
-                  <td className="p-2 text-gray-500">
+                  <td className="p-2 text-gray-500 whitespace-nowrap">
                     {new Date(t.created_at).toLocaleString("ko-KR")}
                   </td>
-                  <td className="p-2">
+                  <td className="p-2 whitespace-nowrap">
                     {t.stock_name} ({t.stock_code})
                   </td>
                   <td
-                    className={`p-2 font-medium ${
+                    className={`p-2 font-medium whitespace-nowrap ${
                       t.side === "BUY" ? "text-red-400" : "text-blue-400"
                     }`}
                   >
                     {t.side === "BUY" ? "매수" : "매도"}
                   </td>
-                  <td className="p-2 text-right">{t.qty}</td>
-                  <td className="p-2 text-right">{Number(t.price).toLocaleString()}</td>
-                  <td className="p-2 text-gray-400">{t.reason}</td>
+                  <td className="p-2 text-right whitespace-nowrap">{t.qty}</td>
+                  <td className="p-2 text-right whitespace-nowrap">{Number(t.price).toLocaleString()}</td>
+                  <td className="p-2 text-gray-400 whitespace-nowrap">{t.reason}</td>
                 </tr>
               ))}
               {trades.length === 0 && (
@@ -106,31 +106,31 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold mb-3">매매 후보 종목 ({candidates.length})</h2>
+      <section className="mb-6 sm:mb-8">
+        <h2 className="text-base sm:text-lg font-semibold mb-3">매매 후보 종목 ({candidates.length})</h2>
         <div className="overflow-x-auto rounded-lg border border-gray-800">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs sm:text-sm">
             <thead className="bg-gray-900 text-gray-400">
               <tr>
-                <th className="p-2 text-left">종목</th>
-                <th className="p-2 text-left">후보 사유</th>
-                <th className="p-2 text-right">MACD</th>
-                <th className="p-2 text-right">MA5</th>
-                <th className="p-2 text-right">MA20</th>
-                <th className="p-2 text-right">스캔 시각</th>
+                <th className="p-2 text-left whitespace-nowrap">종목</th>
+                <th className="p-2 text-left min-w-[220px]">후보 사유</th>
+                <th className="p-2 text-right whitespace-nowrap">MACD</th>
+                <th className="p-2 text-right whitespace-nowrap">MA5</th>
+                <th className="p-2 text-right whitespace-nowrap">MA20</th>
+                <th className="p-2 text-right whitespace-nowrap">스캔 시각</th>
               </tr>
             </thead>
             <tbody>
               {candidates.map((c) => (
                 <tr key={c.stock_code} className="border-t border-gray-800">
-                  <td className="p-2">
+                  <td className="p-2 whitespace-nowrap">
                     {c.stock_name ?? c.stock_code} ({c.stock_code})
                   </td>
                   <td className="p-2 text-gray-300">{c.reason ?? "-"}</td>
-                  <td className="p-2 text-right">{Number(c.macd).toFixed(1)}</td>
-                  <td className="p-2 text-right">{Number(c.ma5).toLocaleString()}</td>
-                  <td className="p-2 text-right">{Number(c.ma20).toLocaleString()}</td>
-                  <td className="p-2 text-right text-gray-500">
+                  <td className="p-2 text-right whitespace-nowrap">{Number(c.macd).toFixed(1)}</td>
+                  <td className="p-2 text-right whitespace-nowrap">{Number(c.ma5).toLocaleString()}</td>
+                  <td className="p-2 text-right whitespace-nowrap">{Number(c.ma20).toLocaleString()}</td>
+                  <td className="p-2 text-right text-gray-500 whitespace-nowrap">
                     {new Date(c.created_at).toLocaleString("ko-KR")}
                   </td>
                 </tr>
