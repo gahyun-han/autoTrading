@@ -332,6 +332,16 @@ const SELL_TAG_CHECKS: Record<string, (rows: IndicatorRow[], avgBuyPrice: number
   "sell-volume-climax": (rows) => volumeClimaxDown(rows),
 };
 
+/** RSI 과매도 이탈복귀 임계값을 파라미터로 받는 매수 조건 체크 (전략 최적화 탐색용) */
+export function buildRsiReboundCheck(threshold: number): (rows: IndicatorRow[]) => boolean {
+  return (rows: IndicatorRow[]) => rsiReboundFromOversold(rows, RSI_REBOUND_WINDOW, threshold);
+}
+
+/** RSI 과매수 이탈 임계값을 파라미터로 받는 매도 조건 체크 (전략 최적화 탐색용) */
+export function buildRsiOverboughtExitCheck(threshold: number): (rows: IndicatorRow[]) => boolean {
+  return (rows: IndicatorRow[]) => rsiExitFromOverbought(rows, RSI_REBOUND_WINDOW, threshold);
+}
+
 /**
  * 사용자가 선택한 매도 조건 태그 조합을 OR로 판정 (하나라도 충족하면 SELL).
  * 선택된 태그가 없으면 항상 HOLD (자동 매도하지 않음).
