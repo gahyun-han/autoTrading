@@ -1,5 +1,6 @@
 import BacktestTab from "@/components/BacktestTab";
 import OptimizeTab from "@/components/OptimizeTab";
+import StockOptimizeTab from "@/components/StockOptimizeTab";
 import { isDbConfigured } from "@/lib/db";
 import { getBuyCandidates, getPositions, getRecentTrades } from "@/lib/queries";
 
@@ -150,6 +151,7 @@ export default async function Home() {
 
       <BacktestTab />
       <OptimizeTab />
+      <StockOptimizeTab />
     </div>
   );
 }
