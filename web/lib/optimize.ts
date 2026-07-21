@@ -55,6 +55,19 @@ export interface ComboSizeStat {
   count: number;
 }
 
+export interface PerStockComboResult {
+  buyTags: string[];
+  sellTags: string[];
+  returnPct: number;
+  trades: number;
+}
+
+export interface PerStockRanking {
+  stockCode: string;
+  stockName: string;
+  topCombos: PerStockComboResult[];
+}
+
 export interface OptimizeReport {
   searchedCount: number;
   topCombos: ComboResult[];
@@ -64,6 +77,7 @@ export interface OptimizeReport {
   buyRsiSensitivity: RsiSensitivityPoint[];
   sellRsiSensitivity: RsiSensitivityPoint[];
   bestOverallResults: BacktestResult[];
+  perStockRankings: PerStockRanking[];
 }
 
 function combinations<T>(pool: T[], size: number): T[][] {
@@ -130,6 +144,37 @@ function comboSizeStats(results: ComboResult[], sizeOf: (r: ComboResult) => numb
 
 function comboKey(buyTags: string[], sellTags: string[]): string {
   return `${buyTags.join(",")}|${sellTags.join(",")}`;
+}
+
+function dedupeCombos(results: ComboResult[]): ComboResult[] {
+  const seen = new Set<string>();
+  const out: ComboResult[] = [];
+  for (const r of results) {
+    const key = comboKey(r.buyTags, r.sellTags);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(r);
+  }
+  return out;
+}
+
+const PER_STOCK_TOP_N = 5;
+
+/** 이미 평가된 조합 풀(pool)을 종목별로 재정렬해 "이 종목엔 어떤 매매법이 잘 맞는지" 상위 N개를 뽑는다 */
+function buildPerStockRankings(datasets: StockDataset[], pool: ComboResult[]): PerStockRanking[] {
+  return datasets.map((d, idx) => {
+    const sorted = [...pool].sort((a, b) => b.perStock[idx].returnPct - a.perStock[idx].returnPct);
+    return {
+      stockCode: d.stockCode,
+      stockName: d.stockName,
+      topCombos: sorted.slice(0, PER_STOCK_TOP_N).map((c) => ({
+        buyTags: c.buyTags,
+        sellTags: c.sellTags,
+        returnPct: c.perStock[idx].returnPct,
+        trades: c.perStock[idx].trades,
+      })),
+    };
+  });
 }
 
 /** RSI 임계값(threshold)만 다른 단일조건 매수전략으로 수익률 민감도 측정 */
@@ -243,6 +288,11 @@ export function runOptimization(datasets: StockDataset[]): OptimizeReport {
     ),
   );
 
+  // 종목별 랭킹은 실제 탐색된 전체 조합 풀(매수전용 575 + 매도전용 377 + 교차검증 25)을 재사용해,
+  // 평균 수익률이 아니라 "그 종목만의" 수익률 기준으로 다시 정렬한다 (추가 백테스트 실행 없음)
+  const evaluatedPool = dedupeCombos([...stage1, ...stage2, ...crossResults]);
+  const perStockRankings = buildPerStockRankings(datasets, evaluatedPool);
+
   return {
     searchedCount,
     topCombos,
@@ -252,5 +302,6 @@ export function runOptimization(datasets: StockDataset[]): OptimizeReport {
     buyRsiSensitivity,
     sellRsiSensitivity,
     bestOverallResults,
+    perStockRankings,
   };
 }

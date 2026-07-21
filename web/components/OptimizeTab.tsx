@@ -61,6 +61,19 @@ interface RsiSensitivityPoint {
   avgReturnPct: number;
 }
 
+interface PerStockComboResult {
+  buyTags: string[];
+  sellTags: string[];
+  returnPct: number;
+  trades: number;
+}
+
+interface PerStockRanking {
+  stockCode: string;
+  stockName: string;
+  topCombos: PerStockComboResult[];
+}
+
 interface OptimizeReport {
   searchedCount: number;
   topCombos: ComboResult[];
@@ -70,6 +83,7 @@ interface OptimizeReport {
   buyRsiSensitivity: RsiSensitivityPoint[];
   sellRsiSensitivity: RsiSensitivityPoint[];
   bestOverallResults: BestResult[];
+  perStockRankings: PerStockRanking[];
   dataStart: string;
   dataEnd: string;
   ranAt: string;
@@ -335,6 +349,47 @@ export default function OptimizeTab() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold mb-2">종목별 최적 조합 (탐색된 조합을 종목 자체 수익률로 재정렬)</h3>
+            <p className="text-xs text-gray-500 mb-2">
+              평균 수익률과 달리, 각 종목마다 실제로 가장 잘 맞았던 매매법만 다시 뽑은 결과입니다. 종목별로
+              선호되는 조건이 다르면 여기서 차이가 드러납니다.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-4">
+              {report.perStockRankings.map((sr) => (
+                <div key={sr.stockCode} className="rounded-lg border border-gray-800 overflow-hidden">
+                  <div className="bg-gray-900 text-gray-300 text-xs sm:text-sm font-medium p-2">
+                    {sr.stockName} ({sr.stockCode})
+                  </div>
+                  <table className="w-full text-xs">
+                    <thead className="text-gray-500">
+                      <tr>
+                        <th className="p-1 text-left">매수조건</th>
+                        <th className="p-1 text-left">매도조건</th>
+                        <th className="p-1 text-right whitespace-nowrap">수익률</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sr.topCombos.map((c, i) => (
+                        <tr key={i} className={`border-t border-gray-800 ${i === 0 ? "bg-purple-950/30" : ""}`}>
+                          <td className="p-1 text-gray-300">{c.buyTags.map(buyLabel).join(" + ")}</td>
+                          <td className="p-1 text-gray-300">{c.sellTags.map(sellLabel).join(" 또는 ")}</td>
+                          <td
+                            className={`p-1 text-right font-medium whitespace-nowrap ${
+                              c.returnPct >= 0 ? "text-red-400" : "text-blue-400"
+                            }`}
+                          >
+                            {c.returnPct.toFixed(2)}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
             </div>
           </div>
 
