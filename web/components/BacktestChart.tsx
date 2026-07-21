@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type { CanvasRenderingTarget2D } from "fancy-canvas";
 import {
   createChart,
   ColorType,
@@ -9,7 +10,108 @@ import {
   AreaSeries,
   HistogramSeries,
   createSeriesMarkers,
+  type IChartApi,
+  type ISeriesApi,
+  type IPrimitivePaneView,
+  type IPrimitivePaneRenderer,
+  type SeriesAttachedParameter,
+  type Time,
 } from "lightweight-charts";
+
+interface CrossPoint {
+  time: Time;
+  price: number;
+  color: string;
+  aboveBar: boolean; // true: 바 위쪽(데드크로스), false: 바 아래쪽(골든크로스)
+}
+
+const CROSS_MARKER_RADIUS = 6;
+const CROSS_MARKER_OFFSET = 12;
+
+/**
+ * 골든크로스/데드크로스 지점에 흰색 테두리가 있는 색상 원을 직접 캔버스에 그리는 프리미티브.
+ * lightweight-charts의 기본 마커는 같은 시각·같은 위치(above/belowBar)에 2개를 넣으면
+ * 겹치지 않고 서로 옆으로 밀려나(stack) 그려지므로, 테두리 효과를 마커 2개로 흉내낼 수 없다.
+ * 대신 시리즈 프리미티브로 원 하나를 채우기+테두리로 직접 그린다.
+ */
+class CrossMarkersPaneRenderer implements IPrimitivePaneRenderer {
+  constructor(private _items: { x: number; y: number; color: string }[]) {}
+
+  draw(target: CanvasRenderingTarget2D) {
+    target.useMediaCoordinateSpace(({ context }) => {
+      for (const item of this._items) {
+        context.beginPath();
+        context.arc(item.x, item.y, CROSS_MARKER_RADIUS, 0, Math.PI * 2);
+        context.fillStyle = item.color;
+        context.fill();
+        context.lineWidth = 1.5;
+        context.strokeStyle = "#ffffff";
+        context.stroke();
+      }
+    });
+  }
+}
+
+class CrossMarkersPaneView implements IPrimitivePaneView {
+  private _items: { x: number; y: number; color: string }[] = [];
+
+  constructor(
+    private _chart: () => IChartApi | null,
+    private _series: () => ISeriesApi<"Candlestick"> | null,
+    private _points: CrossPoint[],
+  ) {}
+
+  update() {
+    const chart = this._chart();
+    const series = this._series();
+    this._items = [];
+    if (!chart || !series) return;
+    const timeScale = chart.timeScale();
+    for (const p of this._points) {
+      const x = timeScale.timeToCoordinate(p.time);
+      const yBase = series.priceToCoordinate(p.price);
+      if (x === null || yBase === null) continue;
+      const y = yBase + (p.aboveBar ? -CROSS_MARKER_OFFSET : CROSS_MARKER_OFFSET);
+      this._items.push({ x, y, color: p.color });
+    }
+  }
+
+  renderer() {
+    return new CrossMarkersPaneRenderer(this._items);
+  }
+}
+
+class CrossMarkersPrimitive {
+  private _chart: IChartApi | null = null;
+  private _series: ISeriesApi<"Candlestick"> | null = null;
+  private _paneView: CrossMarkersPaneView;
+
+  constructor(points: CrossPoint[]) {
+    this._paneView = new CrossMarkersPaneView(
+      () => this._chart,
+      () => this._series,
+      points,
+    );
+  }
+
+  attached({ chart, series }: SeriesAttachedParameter<Time>) {
+    this._chart = chart;
+    this._series = series as ISeriesApi<"Candlestick">;
+  }
+
+  detached() {
+    this._chart = null;
+    this._series = null;
+  }
+
+  updateAllViews() {
+    this._paneView.update();
+  }
+
+  paneViews() {
+    return [this._paneView];
+  }
+}
 
 interface BacktestCandle {
   date: string; // YYYYMMDD
@@ -304,8 +406,10 @@ export default function BacktestChart({
       text: t.side === "BUY" ? "매수" : "매도",
     }));
 
-    // 골든크로스/데드크로스 마커 (MA5가 MA20을 상향/하향 돌파)
+    // 골든크로스/데드크로스: 흰 테두리 원은 CrossMarkersPrimitive가 캔버스에 직접 그리고,
+    // "GC"/"DC" 글자는 크기 0(모양 없음) 마커로 텍스트만 표시
     const crossMarkers: any[] = [];
+    const crossPoints: CrossPoint[] = [];
     for (let i = 1; i < candles.length; i++) {
       const prev = candles[i - 1];
       const cur = candles[i];
@@ -314,15 +418,16 @@ export default function BacktestChart({
       }
       if (prev.ma5 <= prev.ma20 && cur.ma5 > cur.ma20) {
         const t = toTime(cur.date) as any;
-        // 대비색(흰색) 테두리를 먼저 그리고 그 위에 본 마커를 겹쳐 시인성을 높임
-        crossMarkers.push({ time: t, position: "belowBar", color: "#ffffff", shape: "circle", size: 1.8, text: "" });
-        crossMarkers.push({ time: t, position: "belowBar", color: "#22c55e", shape: "circle", size: 1, text: "GC" });
+        crossMarkers.push({ time: t, position: "belowBar", color: "#22c55e", shape: "circle", size: 0, text: "GC" });
+        crossPoints.push({ time: t, price: cur.low, color: "#22c55e", aboveBar: false });
       } else if (prev.ma5 >= prev.ma20 && cur.ma5 < cur.ma20) {
         const t = toTime(cur.date) as any;
-        crossMarkers.push({ time: t, position: "aboveBar", color: "#ffffff", shape: "circle", size: 1.8, text: "" });
-        crossMarkers.push({ time: t, position: "aboveBar", color: "#f97316", shape: "circle", size: 1, text: "DC" });
+        crossMarkers.push({ time: t, position: "aboveBar", color: "#f97316", shape: "circle", size: 0, text: "DC" });
+        crossPoints.push({ time: t, price: cur.high, color: "#f97316", aboveBar: true });
       }
     }
+
+    candleSeries.attachPrimitive(new CrossMarkersPrimitive(crossPoints));
 
     // 전일 대비 큰 폭(±3%) 변동 지점에 RSI 수치 표시
     const rsiMarkers: any[] = [];
