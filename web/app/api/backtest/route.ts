@@ -4,17 +4,24 @@ import { INVEST_PER_STOCK } from "@/lib/config";
 import { calculateIndicators } from "@/lib/indicators";
 import { fetchDailyOhlcv } from "@/lib/market";
 import { PRESET_DEFAULT, SELL_PRESET_DEFAULT } from "@/lib/conditionTags";
+import { PRESET_STOCKS, type PresetStock } from "@/lib/presetStocks";
 import { checkCustomBuySignal, checkCustomSellSignal } from "@/lib/strategy";
 
 export const maxDuration = 60;
 
-const TARGETS = [
-  { code: "494310", name: "KODEX반도체레버리지" },
-  { code: "233740", name: "KODEX코스닥150레버리지" },
-  { code: "005930", name: "삼성전자" },
-  { code: "000660", name: "SK하이닉스" },
-  { code: "035420", name: "NAVER" },
-];
+function parseTargets(stocksParam: string | null): PresetStock[] {
+  if (!stocksParam) return PRESET_STOCKS;
+  try {
+    const parsed = JSON.parse(stocksParam);
+    if (!Array.isArray(parsed)) return PRESET_STOCKS;
+    const targets = parsed
+      .filter((s): s is PresetStock => s && typeof s.code === "string" && /^\d{6}$/.test(s.code))
+      .map((s) => ({ code: s.code, name: (typeof s.name === "string" && s.name.trim()) || s.code }));
+    return targets.length > 0 ? targets : PRESET_STOCKS;
+  } catch {
+    return PRESET_STOCKS;
+  }
+}
 
 function fmt(d: Date) {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
@@ -32,13 +39,14 @@ export async function GET(req: Request) {
   const sellTagsParam = searchParams.get("sellTags");
   const sellTags = sellTagsParam ? sellTagsParam.split(",").filter(Boolean) : SELL_PRESET_DEFAULT;
   const sellSignalFn = checkCustomSellSignal(sellTags);
+  const targets = parseTargets(searchParams.get("stocks"));
 
   const end = new Date();
   const start = new Date();
   start.setDate(end.getDate() - 200); // KIS 일봉 API는 요청 범위와 무관하게 최근 100거래일(약 4~5개월)까지만 반환
 
   const results = [];
-  for (const t of TARGETS) {
+  for (const t of targets) {
     try {
       const candles = await fetchDailyOhlcv(t.code, fmt(start), fmt(end));
       const rows = calculateIndicators(candles);

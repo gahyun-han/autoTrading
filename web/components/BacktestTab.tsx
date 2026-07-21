@@ -10,6 +10,7 @@ import {
   SELL_TAG_META,
   TAG_META,
 } from "@/lib/conditionTags";
+import { PRESET_STOCKS, type PresetStock } from "@/lib/presetStocks";
 
 interface BacktestTrade {
   date: string;
@@ -60,6 +61,9 @@ const SELL_TAG_CATEGORIES = Array.from(new Set(SELL_TAG_META.map((t) => t.catego
 export default function BacktestTab() {
   const [selectedTags, setSelectedTags] = useState<string[]>(PRESET_DEFAULT);
   const [selectedSellTags, setSelectedSellTags] = useState<string[]>(SELL_PRESET_DEFAULT);
+  const [selectedStocks, setSelectedStocks] = useState<PresetStock[]>(PRESET_STOCKS);
+  const [customCode, setCustomCode] = useState("");
+  const [customName, setCustomName] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<BacktestResult[] | null>(null);
   const [dataStart, setDataStart] = useState<string | null>(null);
@@ -76,12 +80,45 @@ export default function BacktestTab() {
     setSelectedSellTags((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
   }
 
+  function togglePresetStock(stock: PresetStock) {
+    setSelectedStocks((prev) =>
+      prev.some((s) => s.code === stock.code)
+        ? prev.filter((s) => s.code !== stock.code)
+        : [...prev, stock],
+    );
+  }
+
+  function addCustomStock() {
+    const code = customCode.trim();
+    if (!/^\d{6}$/.test(code)) {
+      setError("종목코드는 6자리 숫자여야 합니다 (예: 005930)");
+      return;
+    }
+    if (selectedStocks.some((s) => s.code === code)) {
+      setCustomCode("");
+      setCustomName("");
+      return;
+    }
+    setError(null);
+    setSelectedStocks((prev) => [...prev, { code, name: customName.trim() || code }]);
+    setCustomCode("");
+    setCustomName("");
+  }
+
+  function removeStock(code: string) {
+    setSelectedStocks((prev) => prev.filter((s) => s.code !== code));
+  }
+
   async function runBacktest() {
+    if (selectedStocks.length === 0) {
+      setError("최소 1개 이상의 종목을 선택하세요.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(
-        `/api/backtest?tags=${selectedTags.join(",")}&sellTags=${selectedSellTags.join(",")}`,
+        `/api/backtest?tags=${selectedTags.join(",")}&sellTags=${selectedSellTags.join(",")}&stocks=${encodeURIComponent(JSON.stringify(selectedStocks))}`,
       );
       if (!res.ok) throw new Error(`요청 실패: ${res.status}`);
       const data = await res.json();
@@ -98,10 +135,68 @@ export default function BacktestTab() {
 
   return (
     <section className="mb-8">
+      <h2 className="text-base sm:text-lg font-semibold w-full sm:w-auto mb-3">
+        백테스트 (KIS 최대 조회기간, 약 100거래일)
+      </h2>
+
+      <div className="mb-3 space-y-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-500 w-full sm:w-16 shrink-0">종목선택</span>
+          {PRESET_STOCKS.map((s) => {
+            const active = selectedStocks.some((sel) => sel.code === s.code);
+            return (
+              <button
+                key={s.code}
+                onClick={() => togglePresetStock(s)}
+                className={`text-xs px-2.5 py-1.5 rounded-full border transition-colors ${
+                  active
+                    ? "bg-emerald-600 border-emerald-600 text-white"
+                    : "border-gray-700 text-gray-400 hover:border-gray-500"
+                }`}
+              >
+                #{s.name}
+              </button>
+            );
+          })}
+          {selectedStocks
+            .filter((s) => !PRESET_STOCKS.some((p) => p.code === s.code))
+            .map((s) => (
+              <button
+                key={s.code}
+                onClick={() => removeStock(s.code)}
+                className="text-xs px-2.5 py-1.5 rounded-full border bg-emerald-600 border-emerald-600 text-white"
+                title="클릭해서 제거"
+              >
+                #{s.name} ({s.code}) ✕
+              </button>
+            ))}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-500 w-full sm:w-16 shrink-0"></span>
+          <input
+            value={customCode}
+            onChange={(e) => setCustomCode(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addCustomStock()}
+            placeholder="종목코드 (예: 005930)"
+            className="text-xs px-2.5 py-1.5 rounded border border-gray-700 bg-transparent text-gray-200 placeholder-gray-600 w-36"
+          />
+          <input
+            value={customName}
+            onChange={(e) => setCustomName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addCustomStock()}
+            placeholder="종목명 (선택)"
+            className="text-xs px-2.5 py-1.5 rounded border border-gray-700 bg-transparent text-gray-200 placeholder-gray-600 w-32"
+          />
+          <button
+            onClick={addCustomStock}
+            className="text-xs px-2.5 py-1.5 rounded border border-gray-700 text-gray-400 hover:border-gray-500"
+          >
+            추가
+          </button>
+        </div>
+      </div>
+
       <div className="flex items-center gap-2 sm:gap-3 mb-3 flex-wrap">
-        <h2 className="text-base sm:text-lg font-semibold w-full sm:w-auto">
-          백테스트 (KIS 최대 조회기간, 약 100거래일)
-        </h2>
         <button
           onClick={() => setSelectedTags(PRESET_DEFAULT)}
           className="text-xs px-2.5 py-1.5 rounded border border-gray-700 text-gray-400 hover:border-gray-500"
@@ -338,8 +433,8 @@ export default function BacktestTab() {
 
       {!results && !loading && (
         <p className="text-gray-500 text-sm">
-          버튼을 눌러 5개 종목(반도체레버리지/코스닥150레버리지/삼성전자/SK하이닉스/NAVER)의
-          백테스트를 실행하세요. (KIS API 한도 내 최대 기간인 약 100거래일치 데이터 사용)
+          버튼을 눌러 선택한 {selectedStocks.length}개 종목의 백테스트를 실행하세요. (KIS API 한도 내
+          최대 기간인 약 100거래일치 데이터 사용)
         </p>
       )}
     </section>
