@@ -76,10 +76,12 @@ interface PerStockRanking {
 
 interface OptimizeReport {
   searchedCount: number;
+  stockCount: number;
   topCombos: ComboResult[];
   bestOverall: ComboResult;
   buyComboSizeStats: ComboSizeStat[];
   sellComboSizeStats: ComboSizeStat[];
+  sellSearchBuyTags: string[];
   buyRsiSensitivity: RsiSensitivityPoint[];
   sellRsiSensitivity: RsiSensitivityPoint[];
   bestOverallResults: BestResult[];
@@ -140,8 +142,9 @@ export default function OptimizeTab() {
 
       <p className="text-xs text-gray-500 mb-3">
         매수조건 1~3개 조합, 매도조건 1~3개 조합, RSI 임계값(매수 이탈복귀/매도 과매수이탈)을 바꿔가며
-        5개 종목 백테스트를 반복 실행해 수익률을 비교합니다. 전체 조합의 곱(수십만개)은 계산량이 커서,
-        매수조합 우선탐색 → 매도조합 우선탐색 → 상위 조합 교차검증 순서의 단계적 탐색을 사용합니다.
+        대상 종목 백테스트를 반복 실행해 수익률을 비교합니다(데이터 조회에 실패한 종목은 통계에서 제외).
+        전체 조합의 곱(수십만개)은 계산량이 커서, 매수조합 우선탐색 → 매도조합 우선탐색 → 상위 조합
+        교차검증 순서의 단계적 탐색을 사용합니다.
       </p>
 
       {error && <p className="text-sm text-red-400 mb-3">오류: {error}</p>}
@@ -149,13 +152,13 @@ export default function OptimizeTab() {
       {report && (
         <div className="space-y-6">
           <p className="text-xs text-gray-500">
-            조회기간: {fmtDate(report.dataStart)} ~ {fmtDate(report.dataEnd)} · 탐색한 조합/파라미터 수:{" "}
-            {report.searchedCount.toLocaleString()}개 · 실행 시각:{" "}
+            조회기간: {fmtDate(report.dataStart)} ~ {fmtDate(report.dataEnd)} · 대상 종목: {report.stockCount}개 ·
+            탐색한 조합/파라미터 수: {report.searchedCount.toLocaleString()}개 · 실행 시각:{" "}
             {new Date(report.ranAt).toLocaleString("ko-KR")}
           </p>
           {report.fetchErrors && report.fetchErrors.length > 0 && (
             <p className="text-xs text-yellow-400">
-              일부 종목 데이터 조회 실패: {report.fetchErrors.map((e) => `${e.stockName}(${e.error})`).join(", ")}
+              일부 종목 데이터 조회 실패(아래 모든 통계에서 제외됨): {report.fetchErrors.map((e) => `${e.stockName}(${e.error})`).join(", ")}
             </p>
           )}
 
@@ -190,7 +193,10 @@ export default function OptimizeTab() {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold mb-2">매도조건 개수별 평균 수익률 (매수조건은 기존 전략 고정)</h3>
+            <h3 className="text-sm font-semibold mb-2">
+              매도조건 개수별 평균 수익률 (매수조건은 1단계 최고 조합 고정:{" "}
+              {report.sellSearchBuyTags.map(buyLabel).join(" + ")})
+            </h3>
             <div className="overflow-x-auto rounded-lg border border-gray-800">
               <table className="w-full text-xs sm:text-sm">
                 <thead className="bg-gray-900 text-gray-400">
@@ -248,7 +254,9 @@ export default function OptimizeTab() {
               </div>
             </div>
             <div>
-              <h3 className="text-sm font-semibold mb-2">RSI 매도 과매수이탈 임계값 민감도</h3>
+              <h3 className="text-sm font-semibold mb-2">
+                RSI 매도 과매수이탈 임계값 민감도 (매수조건: {report.sellSearchBuyTags.map(buyLabel).join(" + ")})
+              </h3>
               <div className="overflow-x-auto rounded-lg border border-gray-800">
                 <table className="w-full text-xs sm:text-sm">
                   <thead className="bg-gray-900 text-gray-400">
@@ -278,7 +286,7 @@ export default function OptimizeTab() {
 
           <div>
             <h3 className="text-sm font-semibold mb-2">
-              상위 {report.topCombos.length}개 조합 (5개 종목 평균 수익률 순, 행 클릭 시 종목별 수익률 확인)
+              상위 {report.topCombos.length}개 조합 ({report.stockCount}개 종목 평균 수익률 순, 행 클릭 시 종목별 수익률 확인)
             </h3>
             <div className="overflow-x-auto rounded-lg border border-gray-800">
               <table className="w-full text-xs sm:text-sm">

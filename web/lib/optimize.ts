@@ -2,12 +2,7 @@
 // 이미 메모리에 올라온 지표(rows)만 사용하므로 외부 API 호출 없이 순수 계산만 수행한다.
 
 import { runBacktest, type BacktestResult } from "./backtest";
-import {
-  PRESET_DEFAULT,
-  SELL_PRESET_DEFAULT,
-  SELL_TAG_META,
-  TAG_META,
-} from "./conditionTags";
+import { SELL_PRESET_DEFAULT, SELL_TAG_META, TAG_META } from "./conditionTags";
 import type { IndicatorRow } from "./indicators";
 import {
   buildRsiOverboughtExitCheck,
@@ -70,10 +65,12 @@ export interface PerStockRanking {
 
 export interface OptimizeReport {
   searchedCount: number;
+  stockCount: number;
   topCombos: ComboResult[];
   bestOverall: ComboResult;
   buyComboSizeStats: ComboSizeStat[];
   sellComboSizeStats: ComboSizeStat[];
+  sellSearchBuyTags: string[];
   buyRsiSensitivity: RsiSensitivityPoint[];
   sellRsiSensitivity: RsiSensitivityPoint[];
   bestOverallResults: BacktestResult[];
@@ -195,8 +192,9 @@ function evaluateBuyRsiThreshold(datasets: StockDataset[], threshold: number): n
   return returns.reduce((s, v) => s + v, 0) / returns.length;
 }
 
-/** RSI 임계값(threshold)만 다른 단일조건 매도전략으로 수익률 민감도 측정 */
-function evaluateSellRsiThreshold(datasets: StockDataset[], threshold: number): number {
+/** RSI 임계값(threshold)만 다른 단일조건 매도전략으로 수익률 민감도 측정. 매수조건은 실제로 매매가 발생하는
+ * 조합(1단계에서 찾은 최고 매수조합)으로 고정해야 매도조건 변화가 의미있게 비교된다. */
+function evaluateSellRsiThreshold(datasets: StockDataset[], threshold: number, fixedBuyTags: string[]): number {
   const check = buildRsiOverboughtExitCheck(threshold);
   const sellSignalFn = (rows: IndicatorRow[], avgBuyPrice: number): SignalResult => {
     const cur = rows.at(-1)!;
@@ -205,7 +203,7 @@ function evaluateSellRsiThreshold(datasets: StockDataset[], threshold: number): 
       ? { signal: "SELL", reason: `RSI ${threshold} 과매수이탈 (${changePct.toFixed(1)}%)` }
       : { signal: "HOLD", reason: `보유 유지 (${changePct.toFixed(1)}%)` };
   };
-  const buySignalFn = checkCustomBuySignal(PRESET_DEFAULT);
+  const buySignalFn = checkCustomBuySignal(fixedBuyTags);
   const returns = datasets.map(
     (d) =>
       runBacktest(d.stockCode, d.stockName, d.rows, d.backtestStartDate, d.investPerStock, buySignalFn, sellSignalFn)
@@ -232,10 +230,12 @@ export function runOptimization(datasets: StockDataset[]): OptimizeReport {
   const stage1Sorted = [...stage1].sort((a, b) => b.avgReturnPct - a.avgReturnPct);
   const topBuy = stage1Sorted.slice(0, TOP_N_PER_STAGE).map((r) => r.buyTags);
 
-  // 2단계: 매수조건은 기존 전략(PRESET_DEFAULT)으로 고정하고 매도조합만 변경
+  // 2단계: 매수조건은 1단계에서 찾은 최고 매수조합으로 고정하고 매도조합만 변경
+  // (PRESET_DEFAULT처럼 임의 고정 시, 그 조합이 거의 매매를 발생시키지 않으면 매도조건 비교가 전부 0%로 무의미해짐)
+  const fixedBuyTagsForStage2 = topBuy[0];
   const stage2 = sellCombos.map((sellTags) => {
     searchedCount++;
-    return evaluateCombo(datasets, PRESET_DEFAULT, sellTags);
+    return evaluateCombo(datasets, fixedBuyTagsForStage2, sellTags);
   });
   const stage2Sorted = [...stage2].sort((a, b) => b.avgReturnPct - a.avgReturnPct);
   const topSell = stage2Sorted.slice(0, TOP_N_PER_STAGE).map((r) => r.sellTags);
@@ -271,7 +271,7 @@ export function runOptimization(datasets: StockDataset[]): OptimizeReport {
 
   const sellRsiSensitivity: RsiSensitivityPoint[] = SELL_RSI_GRID.map((threshold) => {
     searchedCount++;
-    return { threshold, avgReturnPct: evaluateSellRsiThreshold(datasets, threshold) };
+    return { threshold, avgReturnPct: evaluateSellRsiThreshold(datasets, threshold, fixedBuyTagsForStage2) };
   });
 
   const bestBuySignalFn = checkCustomBuySignal(bestOverall.buyTags);
@@ -295,10 +295,12 @@ export function runOptimization(datasets: StockDataset[]): OptimizeReport {
 
   return {
     searchedCount,
+    stockCount: datasets.length,
     topCombos,
     bestOverall,
     buyComboSizeStats: comboSizeStats(stage1, (r) => r.buyTags.length),
     sellComboSizeStats: comboSizeStats(stage2, (r) => r.sellTags.length),
+    sellSearchBuyTags: fixedBuyTagsForStage2,
     buyRsiSensitivity,
     sellRsiSensitivity,
     bestOverallResults,
