@@ -23,6 +23,11 @@ export const TAG_META: TagMeta[] = [
   { id: "ichimoku-tenkan-gt-kijun", label: "전환선>기준선", category: "일목균형표" },
   { id: "ichimoku-bullish-cloud", label: "양운(선행스팬1>선행스팬2)", category: "일목균형표" },
   { id: "ichimoku-above-cloud", label: "구름대 위 돌파", category: "일목균형표" },
+  { id: "bollinger-lower-touch-back", label: "볼린저 하단 터치 후 복귀", category: "볼린저밴드" },
+  { id: "new-high-breakout", label: "N일 신고가 돌파(20일)", category: "돌파" },
+  { id: "stochastic-oversold-cross", label: "스토캐스틱 과매도 골든크로스", category: "스토캐스틱" },
+  { id: "obv-rising", label: "OBV 상승추세(5일>20일)", category: "거래량" },
+  { id: "adx-strong-trend", label: "ADX 추세강도 필터(25이상)", category: "추세강도" },
 ];
 
 // 프리셋: 기존 화면의 두 전략을 태그 조합으로 표현

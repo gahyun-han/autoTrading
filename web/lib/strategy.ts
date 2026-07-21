@@ -1,7 +1,10 @@
 import {
+  ADX_TREND_THRESHOLD,
   GC_WINDOW,
+  NEW_HIGH_BREAKOUT_WINDOW,
   RSI_OVERSOLD,
   RSI_REBOUND_WINDOW,
+  STOCH_OVERSOLD,
   STOP_LOSS_PCT,
   TAKE_PROFIT_PCT,
   TAKE_PROFIT_RANGE_MIN,
@@ -166,6 +169,61 @@ function volumeClimaxDown(rows: IndicatorRow[]): boolean {
   return c.volume >= averageVolume(rows) * VOLUME_SURGE_MULT && c.close < c.open;
 }
 
+/** 최근 N일 내 볼린저 하단을 터치한 뒤, 현재 종가가 하단 위로 되돌아왔는지 (과매도 반등) */
+function bollingerLowerTouchThenBack(rows: IndicatorRow[], window: number): boolean {
+  const n = rows.length;
+  const cur = rows[n - 1];
+  if (Number.isNaN(cur.bbLower) || cur.close <= cur.bbLower) return false;
+  for (let i = Math.max(0, n - 1 - window); i < n - 1; i++) {
+    if (!Number.isNaN(rows[i].bbLower) && rows[i].close <= rows[i].bbLower) return true;
+  }
+  return false;
+}
+
+/** 현재 종가가 직전 window일(오늘 제외) 중 최고가를 상향 돌파했는지 (N일 신고가 돌파) */
+function newHighBreakout(rows: IndicatorRow[], window: number): boolean {
+  const n = rows.length;
+  const cur = rows[n - 1];
+  const slice = rows.slice(Math.max(0, n - 1 - window), n - 1);
+  if (slice.length === 0) return false;
+  const priorHigh = Math.max(...slice.map((r) => r.high));
+  return cur.close > priorHigh;
+}
+
+/** 최근 N일 내 스토캐스틱 %K가 과매도(oversold) 구간 아래에 있었고, 가장 최근 시점에 %K가 %D를 상향 돌파했는지 */
+function stochasticOversoldCross(rows: IndicatorRow[], window: number): boolean {
+  const n = rows.length;
+  if (n < 2) return false;
+  const prev = rows[n - 2];
+  const cur = rows[n - 1];
+  if (
+    Number.isNaN(prev.stochK) ||
+    Number.isNaN(prev.stochD) ||
+    Number.isNaN(cur.stochK) ||
+    Number.isNaN(cur.stochD)
+  ) {
+    return false;
+  }
+  const crossedUp = prev.stochK <= prev.stochD && cur.stochK > cur.stochD;
+  if (!crossedUp) return false;
+  for (let i = Math.max(0, n - 1 - window); i < n; i++) {
+    if (!Number.isNaN(rows[i].stochK) && rows[i].stochK <= STOCH_OVERSOLD) return true;
+  }
+  return false;
+}
+
+/** OBV 단기 이동평균이 장기 이동평균 위에 있는지 (거래량 동반 상승추세 확인) */
+function obvRisingTrend(rows: IndicatorRow[]): boolean {
+  const c = rows.at(-1)!;
+  return !Number.isNaN(c.obvSma5) && !Number.isNaN(c.obvSma20) && c.obvSma5 > c.obvSma20;
+}
+
+/** ADX가 추세강도 임계값 이상인지 (추세 구간 필터, 다른 매수 조건과 함께 사용) */
+function adxStrongTrend(rows: IndicatorRow[]): boolean {
+  const c = rows.at(-1)!;
+  return !Number.isNaN(c.adx) && c.adx >= ADX_TREND_THRESHOLD;
+}
+
 /**
  * 매수 시그널 판정 (보유하지 않은 종목 대상)
  * AND: 골든크로스(N일 이내) + MACD 0선 위 + MACD 상향돌파 + 거래량 급증
@@ -276,6 +334,11 @@ const TAG_CHECKS: Record<string, (rows: IndicatorRow[]) => boolean> = {
     if (Number.isNaN(c.spanA) || Number.isNaN(c.spanB)) return false;
     return c.close > Math.max(c.spanA, c.spanB);
   },
+  "bollinger-lower-touch-back": (rows) => bollingerLowerTouchThenBack(rows, RSI_REBOUND_WINDOW),
+  "new-high-breakout": (rows) => newHighBreakout(rows, NEW_HIGH_BREAKOUT_WINDOW),
+  "stochastic-oversold-cross": (rows) => stochasticOversoldCross(rows, RSI_REBOUND_WINDOW),
+  "obv-rising": (rows) => obvRisingTrend(rows),
+  "adx-strong-trend": (rows) => adxStrongTrend(rows),
 };
 
 /**
